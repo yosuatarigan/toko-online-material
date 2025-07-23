@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:toko_online_material/admin/manage_kategori.dart';
+import 'package:toko_online_material/admin/manage_produk_page.dart';
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -314,19 +316,33 @@ class _AdminHomePageState extends State<AdminHomePage> {
                         'Kelola Produk',
                         Icons.inventory_2_outlined,
                         const Color(0xFF2196F3),
-                        () => _showComingSoon('Kelola Produk'),
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ManageProductsPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuCard(
+                        'Kelola Kategori',
+                        Icons.category_outlined,
+                        const Color(0xFF4CAF50),
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ManageCategoriesPage(),
+                            ),
+                          );  
+                        },
                       ),
                       _buildMenuCard(
                         'Kelola Pesanan',
                         Icons.receipt_long_outlined,
                         const Color(0xFFFF9800),
                         () => _showComingSoon('Kelola Pesanan'),
-                      ),
-                      _buildMenuCard(
-                        'Kelola Pelanggan',
-                        Icons.people_outline,
-                        const Color(0xFF4CAF50),
-                        () => _showComingSoon('Kelola Pelanggan'),
                       ),
                       _buildMenuCard(
                         'Laporan',
