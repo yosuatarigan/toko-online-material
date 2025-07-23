@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414822823139",
+    "project_id": "app-aprove-ian",
+    "storage_bucket": "app-aprove-ian.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414822823139:android:441febe5720be0f2e041d6",
+        "android_client_info": {
+          "package_name": "com.example.toko_online_material"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJ6fxum3dkBIWyrgS3msov5ZOW3Q-TnvI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
