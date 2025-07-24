@@ -15,17 +15,33 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final user = FirebaseAuth.instance.currentUser;
   final _searchController = TextEditingController();
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
   
   String _selectedCategoryId = '';
   bool _isGridView = true;
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _animationController.forward();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -36,9 +52,7 @@ class _HomePageState extends State<HomePage> {
   void _navigateToSearch() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const SearchPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const SearchPage()),
     );
   }
 
@@ -64,435 +78,568 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1E88E5),
-        elevation: 0,
-        title: const Text(
-          'MaterialStore',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fitur notifikasi akan segera hadir')),
-              );
-            },
-          ),
-          const CartIcon(),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.account_circle, color: Colors.white),
-            onSelected: (value) {
-              if (value == 'logout') {
-                _logout();
-              } else if (value == 'profile') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Fitur profile akan segera hadir')),
-                );
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 12),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined),
-                    SizedBox(width: 12),
-                    Text('Pengaturan'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Keluar', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      extendBodyBehindAppBar: true,
+      appBar: _buildModernAppBar(),
       body: Column(
         children: [
-          // Main content
           Expanded(
             child: NestedScrollView(
               headerSliverBuilder: (context, innerBoxIsScrolled) {
                 return [
-                  // Header Section
-                  SliverToBoxAdapter(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF1E88E5),
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(24),
-                          bottomRight: Radius.circular(24),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Welcome Text
-                            Text(
-                              'Halo, ${user?.displayName ?? 'User'}!',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Temukan bahan material terbaik untuk proyek Anda',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white70,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            
-                            // Search Bar
-                            GestureDetector(
-                              onTap: _navigateToSearch,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.search,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Cari produk, kategori...',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Icon(
-                                      Icons.tune,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 24),
-                  ),
-                  
-                  // Categories Filter
-                  SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 24),
-                          child: Text(
-                            'Kategori',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3748),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        StreamBuilder<QuerySnapshot>(
-                          stream: FirebaseFirestore.instance
-                              .collection('categories')
-                              .orderBy('name')
-                              .snapshots(),
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return const SizedBox(
-                                height: 50,
-                                child: Center(child: CircularProgressIndicator()),
-                              );
-                            }
-
-                            final categories = snapshot.data!.docs
-                                .map((doc) => Category.fromFirestore(doc))
-                                .toList();
-
-                            return SizedBox(
-                              height: 50,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                children: [
-                                  // All Categories
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: FilterChip(
-                                      label: const Text('Semua'),
-                                      selected: _selectedCategoryId.isEmpty,
-                                      onSelected: (selected) {
-                                        setState(() {
-                                          _selectedCategoryId = '';
-                                        });
-                                      },
-                                      selectedColor: const Color(0xFF1E88E5).withOpacity(0.2),
-                                      checkmarkColor: const Color(0xFF1E88E5),
-                                    ),
-                                  ),
-                                  // Category Chips
-                                  ...categories.map((category) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: FilterChip(
-                                        label: Text(category.name),
-                                        selected: _selectedCategoryId == category.id,
-                                        onSelected: (selected) {
-                                          setState(() {
-                                            _selectedCategoryId = selected ? category.id : '';
-                                          });
-                                        },
-                                        selectedColor: const Color(0xFF1E88E5).withOpacity(0.2),
-                                        checkmarkColor: const Color(0xFF1E88E5),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 16),
-                  ),
-                  
-                  // Products Header with View Toggle
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Row(
-                        children: [
-                          const Text(
-                            'Produk Tersedia',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3748),
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.grid_view,
-                                    color: _isGridView ? const Color(0xFF1E88E5) : Colors.grey,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isGridView = true;
-                                    });
-                                  },
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.list,
-                                    color: !_isGridView ? const Color(0xFF1E88E5) : Colors.grey,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isGridView = false;
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: 16),
-                  ),
+                  _buildHeaderSection(),
+                  _buildCategoriesSection(),
+                  _buildProductsHeaderSection(),
                 ];
               },
-              body: StreamBuilder<QuerySnapshot>(
-                stream: _productsStream,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Terjadi kesalahan',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Error: ${snapshot.error}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.inventory_outlined,
-                            size: 64,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _selectedCategoryId.isEmpty 
-                                ? 'Belum ada produk' 
-                                : 'Tidak ada produk di kategori ini',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _selectedCategoryId.isEmpty
-                                ? 'Produk akan muncul setelah admin menambahkannya'
-                                : 'Coba pilih kategori lain atau lihat semua produk',
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          if (_selectedCategoryId.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedCategoryId = '';
-                                });
-                              },
-                              child: const Text('Lihat Semua Produk'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  }
-
-                  final products = snapshot.data!.docs
-                      .map((doc) => Product.fromFirestore(doc))
-                      .toList();
-
-                  if (_isGridView) {
-                    // Grid View
-                    return GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100), // Bottom padding untuk cart bar
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.75,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        return ProductCard(product: products[index]);
-                      },
-                    );
-                  } else {
-                    // List View
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(0, 8, 0, 100), // Bottom padding untuk cart bar
-                      itemCount: products.length,
-                      itemBuilder: (context, index) {
-                        return ProductListCard(product: products[index]);
-                      },
-                    );
-                  }
-                },
-              ),
+              body: _buildProductsBody(),
             ),
           ),
-          
-          // Cart Bottom Bar
           const CartBottomBar(),
         ],
       ),
     );
+  }
+
+  PreferredSizeWidget _buildModernAppBar() {
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1976D2),
+              Color(0xFF1565C0),
+              Color(0xFF0D47A1),
+            ],
+          ),
+        ),
+      ),
+      title: const Text(
+        'MaterialStore',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 22,
+        ),
+      ),
+      actions: [
+        _buildNotificationButton(),
+        const CartIcon(),
+        _buildProfileMenu(),
+      ],
+    );
+  }
+
+  Widget _buildNotificationButton() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Fitur notifikasi akan segera hadir'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProfileMenu() {
+    return Container(
+      margin: const EdgeInsets.only(right: 16, left: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: PopupMenuButton<String>(
+        icon: const Icon(Icons.account_circle, color: Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        offset: const Offset(0, 50),
+        onSelected: (value) {
+          if (value == 'logout') {
+            _logout();
+          } else if (value == 'profile') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Fitur profile akan segera hadir'),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        },
+        itemBuilder: (context) => [
+          _buildMenuItem(Icons.person_outline, 'Profile', 'profile'),
+          _buildMenuItem(Icons.settings_outlined, 'Pengaturan', 'settings'),
+          const PopupMenuDivider(),
+          _buildMenuItem(Icons.logout, 'Keluar', 'logout', isDestructive: true),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _buildMenuItem(IconData icon, String text, String value, {bool isDestructive = false}) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: isDestructive ? Colors.red : null, size: 20),
+          const SizedBox(width: 12),
+          Text(text, style: TextStyle(color: isDestructive ? Colors.red : null)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    return SliverToBoxAdapter(
+      child: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1976D2),
+                Color(0xFF1565C0),
+                Color(0xFF0D47A1),
+              ],
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 80, 24, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWelcomeText(),
+                  const SizedBox(height: 24),
+                  _buildSearchBar(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeText() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Halo, ${user?.displayName ?? 'User'}! 👋',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Temukan bahan material terbaik untuk proyek Anda',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.white.withOpacity(0.9),
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _navigateToSearch,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Icon(Icons.search, color: Colors.grey[600], size: 24),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'Cari produk, kategori...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.tune, color: Colors.grey[600], size: 20),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoriesSection() {
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 32),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Kategori',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildCategoriesChips(),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoriesChips() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('categories')
+          .orderBy('name')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(
+            height: 50,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final categories = snapshot.data!.docs
+            .map((doc) => Category.fromFirestore(doc))
+            .toList();
+
+        return SizedBox(
+          height: 50,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            children: [
+              _buildCategoryChip('Semua', '', _selectedCategoryId.isEmpty),
+              ...categories.map((category) => _buildCategoryChip(
+                category.name,
+                category.id,
+                _selectedCategoryId == category.id,
+              )),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryChip(String label, String value, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.only(right: 12),
+      child: FilterChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF4A5568),
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedCategoryId = selected ? value : '';
+          });
+        },
+        backgroundColor: Colors.white,
+        selectedColor: const Color(0xFF1976D2),
+        checkmarkColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25),
+          side: BorderSide(
+            color: isSelected ? const Color(0xFF1976D2) : Colors.grey.shade300,
+          ),
+        ),
+        elevation: isSelected ? 4 : 1,
+        shadowColor: const Color(0xFF1976D2).withOpacity(0.3),
+      ),
+    );
+  }
+
+  Widget _buildProductsHeaderSection() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          children: [
+            const Text(
+              'Produk Tersedia',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+            const Spacer(),
+            _buildViewToggle(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildToggleButton(Icons.grid_view, true),
+          _buildToggleButton(Icons.view_list, false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleButton(IconData icon, bool isGrid) {
+    final isSelected = _isGridView == isGrid;
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFF1976D2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: IconButton(
+        icon: Icon(
+          icon,
+          color: isSelected ? Colors.white : Colors.grey,
+          size: 20,
+        ),
+        onPressed: () {
+          setState(() {
+            _isGridView = isGrid;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildProductsBody() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _productsStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildErrorState(snapshot.error.toString());
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingState();
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        final products = snapshot.data!.docs
+            .map((doc) => Product.fromFirestore(doc))
+            .toList();
+
+        return _buildProductsList(products);
+      },
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Terjadi Kesalahan',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tidak dapat memuat produk saat ini',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => setState(() {}),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Memuat produk...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.inventory_2_outlined,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _selectedCategoryId.isEmpty ? 'Belum Ada Produk' : 'Tidak Ada Produk',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _selectedCategoryId.isEmpty
+                  ? 'Produk akan muncul setelah admin menambahkannya'
+                  : 'Tidak ada produk dalam kategori ini',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_selectedCategoryId.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedCategoryId = '';
+                  });
+                },
+                child: const Text('Lihat Semua Produk'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductsList(List<Product> products) {
+    if (_isGridView) {
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          return ProductCard(product: products[index]);
+        },
+      );
+    } else {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          return ProductListCard(product: products[index]);
+        },
+      );
+    }
   }
 }
