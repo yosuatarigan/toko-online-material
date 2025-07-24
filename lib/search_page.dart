@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import 'package:toko_online_material/cart_icon.dart';
 import 'package:toko_online_material/product_card.dart';
 import '../models/product.dart';
 import '../models/category.dart';
@@ -486,6 +488,7 @@ class _SearchPageState extends State<SearchPage> {
             icon: const Icon(Icons.tune, color: Colors.black),
             onPressed: _showFilterDialog,
           ),
+          CartIcon(color: Colors.black),
         ],
       ),
       body: Column(

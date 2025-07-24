@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'package:toko_online_material/service/cart_service.dart';
 import 'package:toko_online_material/splash_authwrap.dart';
 
 void main() async {
@@ -8,6 +10,9 @@ void main() async {
   
   // Initialize Firebase
   await Firebase.initializeApp();
+  
+  // Initialize CartService
+  await CartService().initialize();
   
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
@@ -33,9 +38,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MaterialStore',
-      debugShowCheckedModeBanner: false,
+    return ChangeNotifierProvider(
+      create: (context) => CartService(),
+      child: MaterialApp(
+        title: 'MaterialStore',
+        debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // Color Scheme
         primarySwatch: Colors.blue,
@@ -283,6 +290,6 @@ class MyApp extends StatelessWidget {
           child: child!,
         );
       },
-    );
+    ));
   }
 }

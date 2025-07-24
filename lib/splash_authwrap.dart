@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import 'package:toko_online_material/service/cart_service.dart';
 import 'login_page.dart';
 import 'home_page.dart';
 import 'admin_home_page.dart';
@@ -28,6 +30,12 @@ class _SplashAuthWrapperState extends State<SplashAuthWrapper> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await _getUserRole(user.uid);
+      
+      // Sync cart after login
+      if (mounted) {
+        final cartService = Provider.of<CartService>(context, listen: false);
+        await cartService.mergeLocalWithFirebase();
+      }
     }
     
     setState(() {
@@ -68,14 +76,24 @@ class _SplashAuthWrapperState extends State<SplashAuthWrapper> {
         }
 
         if (snapshot.hasData) {
-          // User is logged in, check role
+          // User is logged in, sync cart and check role
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            final cartService = Provider.of<CartService>(context, listen: false);
+            await cartService.mergeLocalWithFirebase();
+          });
+
           if (_userRole == 'admin') {
             return const AdminHomePage();
           } else {
             return const HomePage();
           }
         } else {
-          // User not logged in
+          // User not logged in, clear cart sync
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            final cartService = Provider.of<CartService>(context, listen: false);
+            await cartService.onUserLogout();
+          });
+          
           return const LoginPage();
         }
       },

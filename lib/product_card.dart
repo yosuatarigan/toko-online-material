@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:toko_online_material/product_detaill_page.dart';
+import 'package:toko_online_material/service/cart_service.dart';
 import '../models/product.dart';
 
 class ProductCard extends StatelessWidget {
@@ -269,34 +271,86 @@ class ProductCard extends StatelessWidget {
                             ),
                           ),
                           
-                          // Add to Cart Button (Placeholder)
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: product.isActive && !product.isOutOfStock
-                                  ? const Color(0xFF1E88E5)
-                                  : Colors.grey[400],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: product.isActive && !product.isOutOfStock
-                                  ? () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('${product.name} ditambahkan ke keranjang'),
-                                          duration: const Duration(seconds: 2),
+                          // Add to Cart Button
+                          Consumer<CartService>(
+                            builder: (context, cartService, child) {
+                              final isInCart = cartService.isProductInCart(product.id);
+                              final quantity = cartService.getProductQuantity(product.id);
+                              
+                              return Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: product.isActive && !product.isOutOfStock
+                                      ? (isInCart ? Colors.green : const Color(0xFF1E88E5))
+                                      : Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: product.isActive && !product.isOutOfStock
+                                      ? () async {
+                                          final success = await cartService.addItem(product);
+                                          if (success && context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('${product.name} ditambahkan ke keranjang'),
+                                                duration: const Duration(seconds: 2),
+                                                action: SnackBarAction(
+                                                  label: 'Lihat',
+                                                  onPressed: () {
+                                                    // TODO: Navigate to cart
+                                                  },
+                                                ),
+                                              ),
+                                            );
+                                          } else if (cartService.lastError != null && context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(cartService.lastError!),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      : null,
+                                  child: Stack(
+                                    children: [
+                                      Center(
+                                        child: Icon(
+                                          isInCart ? Icons.shopping_cart : Icons.add_shopping_cart,
+                                          size: 16,
+                                          color: Colors.white,
                                         ),
-                                      );
-                                    }
-                                  : null,
-                              child: const Icon(
-                                Icons.add_shopping_cart,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
+                                      ),
+                                      if (isInCart && quantity > 0)
+                                        Positioned(
+                                          top: 0,
+                                          right: 0,
+                                          child: Container(
+                                            width: 16,
+                                            height: 16,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                '$quantity',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

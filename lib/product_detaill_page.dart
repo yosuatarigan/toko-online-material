@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import 'package:toko_online_material/cart_page.dart';
 import 'package:toko_online_material/image_viewer.dart';
 import 'package:toko_online_material/product_card.dart';
+import 'package:toko_online_material/service/cart_service.dart';
 import '../models/product.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Product product;
 
-  const ProductDetailPage({
-    super.key,
-    required this.product,
-  });
+  const ProductDetailPage({super.key, required this.product});
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -42,18 +42,20 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   Future<void> _loadRelatedProducts() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('products')
-          .where('categoryId', isEqualTo: widget.product.categoryId)
-          .where('isActive', isEqualTo: true)
-          .limit(6)
-          .get();
+      final snapshot =
+          await FirebaseFirestore.instance
+              .collection('products')
+              .where('categoryId', isEqualTo: widget.product.categoryId)
+              .where('isActive', isEqualTo: true)
+              .limit(6)
+              .get();
 
-      final products = snapshot.docs
-          .map((doc) => Product.fromFirestore(doc))
-          .where((product) => product.id != widget.product.id)
-          .take(4)
-          .toList();
+      final products =
+          snapshot.docs
+              .map((doc) => Product.fromFirestore(doc))
+              .where((product) => product.id != widget.product.id)
+              .take(4)
+              .toList();
 
       setState(() {
         _relatedProducts = products;
@@ -63,36 +65,68 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     }
   }
 
-  void _addToCart() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${widget.product.name} (${_quantity}x) ditambahkan ke keranjang',
-        ),
-        action: SnackBarAction(
-          label: 'Lihat Keranjang',
-          onPressed: () {
-            // TODO: Navigate to cart
-          },
-        ),
-      ),
+  void _addToCart() async {
+    final cartService = Provider.of<CartService>(context, listen: false);
+
+    final success = await cartService.addItem(
+      widget.product,
+      quantity: _quantity,
     );
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${widget.product.name} (${_quantity}x) ditambahkan ke keranjang',
+          ),
+          action: SnackBarAction(
+            label: 'Lihat Keranjang',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CartPage()),
+              );
+            },
+          ),
+        ),
+      );
+    } else if (cartService.lastError != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(cartService.lastError!),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _buyNow() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Beli sekarang: ${widget.product.name} (${_quantity}x)'),
-        backgroundColor: const Color(0xFF2E7D32),
-      ),
+  void _buyNow() async {
+    final cartService = Provider.of<CartService>(context, listen: false);
+
+    final success = await cartService.addItem(
+      widget.product,
+      quantity: _quantity,
     );
+
+    if (success && mounted) {
+      // Navigate directly to cart for checkout
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CartPage()),
+      );
+    } else if (cartService.lastError != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(cartService.lastError!),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _shareProduct() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Fitur share akan segera hadir'),
-      ),
+      const SnackBar(content: Text('Fitur share akan segera hadir')),
     );
   }
 
@@ -143,136 +177,148 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   color: Colors.grey[100],
-                  child: widget.product.imageUrls.isNotEmpty
-                      ? Stack(
-                          children: [
-                            PageView.builder(
-                              controller: _imageController,
-                              onPageChanged: (index) {
-                                setState(() {
-                                  _currentImageIndex = index;
-                                });
-                              },
-                              itemCount: widget.product.imageUrls.length,
-                              itemBuilder: (context, index) {
-                                return GestureDetector(
-                                  onTap: () {
-                                    showImageViewer(
-                                      context,
-                                      imageUrls: widget.product.imageUrls,
-                                      initialIndex: index,
-                                      productName: widget.product.name,
-                                    );
-                                  },
-                                  child: CachedNetworkImage(
-                                    imageUrl: widget.product.imageUrls[index],
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    fit: BoxFit.contain,
-                                    placeholder: (context, url) => Container(
-                                      color: Colors.grey[100],
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
+                  child:
+                      widget.product.imageUrls.isNotEmpty
+                          ? Stack(
+                            children: [
+                              PageView.builder(
+                                controller: _imageController,
+                                onPageChanged: (index) {
+                                  setState(() {
+                                    _currentImageIndex = index;
+                                  });
+                                },
+                                itemCount: widget.product.imageUrls.length,
+                                itemBuilder: (context, index) {
+                                  return GestureDetector(
+                                    onTap: () {
+                                      showImageViewer(
+                                        context,
+                                        imageUrls: widget.product.imageUrls,
+                                        initialIndex: index,
+                                        productName: widget.product.name,
+                                      );
+                                    },
+                                    child: CachedNetworkImage(
+                                      imageUrl: widget.product.imageUrls[index],
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      fit: BoxFit.contain,
+                                      placeholder:
+                                          (context, url) => Container(
+                                            color: Colors.grey[100],
+                                            child: const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                          ),
+                                      errorWidget:
+                                          (context, url, error) => Container(
+                                            color: Colors.grey[100],
+                                            child: const Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.image_outlined,
+                                                  size: 64,
+                                                  color: Colors.grey,
+                                                ),
+                                                SizedBox(height: 8),
+                                                Text(
+                                                  'Gambar tidak dapat dimuat',
+                                                  style: TextStyle(
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                     ),
-                                    errorWidget: (context, url, error) => Container(
-                                      color: Colors.grey[100],
-                                      child: const Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.image_outlined,
-                                            size: 64,
-                                            color: Colors.grey,
-                                          ),
-                                          SizedBox(height: 8),
-                                          Text(
-                                            'Gambar tidak dapat dimuat',
-                                            style: TextStyle(color: Colors.grey),
-                                          ),
-                                        ],
+                                  );
+                                },
+                              ),
+
+                              // Image indicator dots
+                              if (widget.product.imageUrls.length > 1)
+                                Positioned(
+                                  bottom: 20,
+                                  left: 0,
+                                  right: 0,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: List.generate(
+                                      widget.product.imageUrls.length,
+                                      (index) => Container(
+                                        width: 8,
+                                        height: 8,
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color:
+                                              index == _currentImageIndex
+                                                  ? Colors.white
+                                                  : Colors.white.withOpacity(
+                                                    0.4,
+                                                  ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                            
-                            // Image indicator dots
-                            if (widget.product.imageUrls.length > 1)
+                                ),
+
+                              // Zoom hint
                               Positioned(
-                                bottom: 20,
-                                left: 0,
-                                right: 0,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: List.generate(
-                                    widget.product.imageUrls.length,
-                                    (index) => Container(
-                                      width: 8,
-                                      height: 8,
-                                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: index == _currentImageIndex
-                                            ? Colors.white
-                                            : Colors.white.withOpacity(0.4),
+                                top: 20,
+                                right: 20,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.zoom_in,
+                                        size: 16,
+                                        color: Colors.white,
                                       ),
-                                    ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Tap to zoom',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            
-                            // Zoom hint
-                             Positioned(
-                              top: 20,
-                              right: 20,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.zoom_in,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'Tap to zoom',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            ],
+                          )
+                          : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_outlined,
+                                size: 64,
+                                color: Colors.grey,
                               ),
-                            ),
-                          ],
-                        )
-                      : const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.image_outlined,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Tidak ada gambar',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Tidak ada gambar',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
                 ),
               ),
             ),
@@ -307,9 +353,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Product Name
                     Text(
                       widget.product.name,
@@ -319,20 +365,17 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                         color: Color(0xFF2D3748),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // SKU
                     Text(
                       'SKU: ${widget.product.sku}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Price and Stock
                     Row(
                       children: [
@@ -392,7 +435,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                         ),
                       ],
                     ),
-                    
+
                     if (widget.product.weight != null) ...[
                       const SizedBox(height: 12),
                       Row(
@@ -416,9 +459,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   ],
                 ),
               ),
-              
+
               const Divider(height: 1),
-              
+
               // Quantity Selector (only if product is available)
               if (widget.product.isActive && !widget.product.isOutOfStock)
                 Padding(
@@ -443,13 +486,14 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                           children: [
                             IconButton(
                               icon: const Icon(Icons.remove),
-                              onPressed: _quantity > 1
-                                  ? () {
-                                      setState(() {
-                                        _quantity--;
-                                      });
-                                    }
-                                  : null,
+                              onPressed:
+                                  _quantity > 1
+                                      ? () {
+                                        setState(() {
+                                          _quantity--;
+                                        });
+                                      }
+                                      : null,
                             ),
                             Container(
                               width: 60,
@@ -465,23 +509,21 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                             ),
                             IconButton(
                               icon: const Icon(Icons.add),
-                              onPressed: _quantity < widget.product.stock
-                                  ? () {
-                                      setState(() {
-                                        _quantity++;
-                                      });
-                                    }
-                                  : null,
+                              onPressed:
+                                  _quantity < widget.product.stock
+                                      ? () {
+                                        setState(() {
+                                          _quantity++;
+                                        });
+                                      }
+                                      : null,
                             ),
                           ],
                         ),
                       ),
                       const Spacer(),
                       Text(
-                        'Total: ${(widget.product.price * _quantity).toStringAsFixed(0).replaceAllMapped(
-                              RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-                              (Match m) => '${m[1]}.',
-                            )} IDR',
+                        'Total: ${(widget.product.price * _quantity).toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')} IDR',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -491,9 +533,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                     ],
                   ),
                 ),
-              
+
               const Divider(height: 1),
-              
+
               // Tabs
               Container(
                 color: Colors.white,
@@ -509,7 +551,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   ],
                 ),
               ),
-              
+
               // Tab Content
               Container(
                 height: 300,
@@ -541,7 +583,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                         ],
                       ),
                     ),
-                    
+
                     // Specifications Tab
                     Padding(
                       padding: const EdgeInsets.all(20),
@@ -558,33 +600,36 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                           const SizedBox(height: 12),
                           if (widget.product.specifications != null &&
                               widget.product.specifications!.isNotEmpty) ...[
-                            ...widget.product.specifications!.entries.map(
-                              (entry) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(
-                                      width: 120,
-                                      child: Text(
-                                        '${entry.key}:',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
+                            ...widget.product.specifications!.entries
+                                .map(
+                                  (entry) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 120,
+                                          child: Text(
+                                            '${entry.key}:',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        entry.value.toString(),
-                                        style: const TextStyle(
-                                          color: Color(0xFF4A5568),
+                                        Expanded(
+                                          child: Text(
+                                            entry.value.toString(),
+                                            style: const TextStyle(
+                                              color: Color(0xFF4A5568),
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ).toList(),
+                                  ),
+                                )
+                                .toList(),
                           ] else
                             Container(
                               padding: const EdgeInsets.all(20),
@@ -605,7 +650,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                         ],
                       ),
                     ),
-                    
+
                     // Reviews Tab
                     Padding(
                       padding: const EdgeInsets.all(20),
@@ -651,9 +696,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // Related Products
               if (_relatedProducts.isNotEmpty) ...[
                 Padding(
@@ -702,97 +747,98 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           ),
         ),
       ),
-      bottomNavigationBar: widget.product.isActive && !widget.product.isOutOfStock
-          ? Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _addToCart,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF1E88E5)),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Tambah ke Keranjang',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E88E5),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _buyNow,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E88E5),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Beli Sekarang',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+      bottomNavigationBar:
+          widget.product.isActive && !widget.product.isOutOfStock
+              ? Container(
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  widget.product.isOutOfStock
-                      ? 'Stok Habis'
-                      : 'Produk Tidak Tersedia',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _addToCart,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF1E88E5)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Tambah ke Keranjang',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E88E5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _buyNow,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E88E5),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Beli Sekarang',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+              : Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.product.isOutOfStock
+                        ? 'Stok Habis'
+                        : 'Produk Tidak Tersedia',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
     );
   }
 }
