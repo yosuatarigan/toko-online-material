@@ -132,7 +132,7 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus Produk'),
-        content: Text('Apakah Anda yakin ingin menghapus produk "${product.name}"?'),
+        content: Text('Apakah Anda yakin ingin menghapus produk "${product.name}"?\n\nSemua varian dan gambar akan ikut terhapus.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -164,6 +164,7 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
                 FilterChip(
                   label: const Text('Semua'),
@@ -244,7 +245,7 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
@@ -254,7 +255,8 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
           );
         },
         backgroundColor: const Color(0xFF2E7D32),
-        child: const Icon(Icons.add, color: Colors.white),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Tambah Produk', style: TextStyle(color: Colors.white)),
       ),
       body: Column(
         children: [
@@ -391,7 +393,7 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Tap tombol + untuk menambah produk',
+                          'Tap tombol "Tambah Produk" untuk memulai',
                           style: TextStyle(
                             color: Colors.grey[500],
                           ),
@@ -425,6 +427,18 @@ class _ManageProductsPageState extends State<ManageProductsPage> {
                             fontSize: 18,
                             color: Colors.grey[600],
                           ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _searchQuery = '';
+                              _selectedCategoryId = '';
+                              _selectedStatus = '';
+                              _searchController.clear();
+                            });
+                          },
+                          child: const Text('Reset Filter'),
                         ),
                       ],
                     ),
@@ -480,8 +494,24 @@ class _ProductCard extends StatelessWidget {
     return Colors.green;
   }
 
+  int _getTotalVariants() {
+    if (product.variants == null || product.variants!.isEmpty) return 0;
+    return product.variants!.length;
+  }
+
+  int _getTotalStock() {
+    if (product.variants == null || product.variants!.isEmpty) {
+      return product.stock;
+    }
+    return product.variants!.fold(0, (sum, variant) => sum + variant['stock'] as int);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final totalVariants = _getTotalVariants();
+    final totalStock = _getTotalStock();
+    final hasVariants = totalVariants > 0;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -496,7 +526,7 @@ class _ProductCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Image
+                  // Product Images Carousel
                   GestureDetector(
                     onTap: product.imageUrls.isNotEmpty 
                         ? () => showImageViewer(
@@ -506,8 +536,8 @@ class _ProductCard extends StatelessWidget {
                             )
                         : null,
                     child: Container(
-                      width: 60,
-                      height: 60,
+                      width: 80,
+                      height: 80,
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(8),
@@ -519,8 +549,8 @@ class _ProductCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                   child: CachedNetworkImage(
                                     imageUrl: product.imageUrls.first,
-                                    width: 60,
-                                    height: 60,
+                                    width: 80,
+                                    height: 80,
                                     fit: BoxFit.cover,
                                     placeholder: (context, url) => Container(
                                       color: Colors.grey[200],
@@ -544,42 +574,26 @@ class _ProductCard extends StatelessWidget {
                               : const Icon(
                                   Icons.image,
                                   color: Colors.grey,
+                                  size: 32,
                                 ),
                           
                           // Multiple images indicator
                           if (product.imageUrls.length > 1)
                             Positioned(
-                              bottom: 2,
-                              right: 2,
+                              bottom: 4,
+                              right: 4,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.7),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  '+${product.imageUrls.length - 1}',
+                                  '${product.imageUrls.length}',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          
-                          // Tap to view overlay
-                          if (product.imageUrls.isNotEmpty)
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Colors.black.withOpacity(0),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.zoom_in,
-                                    color: Colors.transparent,
                                   ),
                                 ),
                               ),
@@ -641,12 +655,37 @@ class _ProductCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          product.categoryName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF718096),
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              product.categoryName,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF718096),
+                              ),
+                            ),
+                            if (hasVariants) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '$totalVariants varian',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -700,7 +739,7 @@ class _ProductCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${product.stock}',
+                          '$totalStock',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -763,6 +802,69 @@ class _ProductCard extends StatelessWidget {
                   ),
                 ],
               ),
+              
+              // Variants Preview
+              if (hasVariants) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Varian Produk ($totalVariants)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4A5568),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: product.variants!.take(3).map((variant) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Text(
+                              '${variant['name']} (${variant['stock']})',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF718096),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      if (totalVariants > 3)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '+${totalVariants - 3} varian lainnya',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF9CA3AF),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

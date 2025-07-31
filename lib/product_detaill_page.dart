@@ -31,6 +31,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   bool _isFavorite = false;
   List<Product> _relatedProducts = [];
   bool _isLoading = true;
+  
+  // Variant state
+  ProductVariant? _selectedVariant;
+  double _currentPrice = 0;
+  int _availableStock = 0;
 
   @override
   void initState() {
@@ -56,8 +61,41 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
     
+    _initializeProductData();
     _loadRelatedProducts();
     _startAnimations();
+  }
+
+  void _initializeProductData() {
+    // Initialize price and stock based on variants
+    if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty) {
+      // Select first available variant or first variant
+      final availableVariants = widget.product.productVariants.where((v) => v.stock > 0).toList();
+      if (availableVariants.isNotEmpty) {
+        _selectedVariant = availableVariants.first;
+      } else {
+        _selectedVariant = widget.product.productVariants.first;
+      }
+      _updatePriceAndStock();
+    } else {
+      _currentPrice = widget.product.price;
+      _availableStock = widget.product.stock;
+    }
+  }
+
+  void _updatePriceAndStock() {
+    if (_selectedVariant != null) {
+      _currentPrice = widget.product.price + _selectedVariant!.priceAdjustment;
+      _availableStock = _selectedVariant!.stock;
+    } else {
+      _currentPrice = widget.product.price;
+      _availableStock = widget.product.stock;
+    }
+    
+    // Reset quantity if it exceeds available stock
+    if (_quantity > _availableStock) {
+      _quantity = _availableStock > 0 ? 1 : 0;
+    }
   }
 
   void _startAnimations() {
@@ -106,9 +144,25 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   void _addToCart() async {
     final cartService = Provider.of<CartService>(context, listen: false);
-    final success = await cartService.addItem(widget.product, quantity: _quantity);
+    
+    // Create a cart item with variant info if applicable
+    Map<String, dynamic>? variantInfo;
+    if (_selectedVariant != null) {
+      variantInfo = {
+        'variantId': _selectedVariant!.id,
+        'variantName': _selectedVariant!.name,
+        'price': _currentPrice,
+      };
+    }
+    
+    final success = await cartService.addItem(
+      widget.product, 
+      quantity: _quantity,
+      variantId: _selectedVariant?.id,
+    );
 
     if (success && mounted) {
+      final variantText = _selectedVariant != null ? ' (${_selectedVariant!.name})' : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -116,7 +170,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               const Icon(Icons.check_circle, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('${widget.product.name} (${_quantity}x) ditambahkan ke keranjang'),
+                child: Text('${widget.product.name}$variantText ($_quantity x) ditambahkan ke keranjang'),
               ),
             ],
           ),
@@ -155,7 +209,21 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   void _buyNow() async {
     final cartService = Provider.of<CartService>(context, listen: false);
-    final success = await cartService.addItem(widget.product, quantity: _quantity);
+    
+    Map<String, dynamic>? variantInfo;
+    if (_selectedVariant != null) {
+      variantInfo = {
+        'variantId': _selectedVariant!.id,
+        'variantName': _selectedVariant!.name,
+        'price': _currentPrice,
+      };
+    }
+    
+    final success = await cartService.addItem(
+      widget.product, 
+      quantity: _quantity,
+      variantId: _selectedVariant?.id,
+    );
 
     if (success && mounted) {
       Navigator.push(
@@ -191,10 +259,18 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     );
   }
 
-  Color _getStockColor() {
-    if (widget.product.isOutOfStock) return Colors.red;
-    if (widget.product.isLowStock) return Colors.orange;
-    return const Color(0xFF2E7D32);
+  String _getFormattedPrice(double price) {
+    return 'Rp ${price.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    )}';
+  }
+
+  bool get _isOutOfStock {
+    if (widget.product.hasVariants) {
+      return _availableStock == 0;
+    }
+    return widget.product.isOutOfStock;
   }
 
   @override
@@ -216,7 +292,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildProductInfo(),
-                  if (widget.product.isActive && !widget.product.isOutOfStock)
+                  if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty)
+                    _buildVariantSelector(),
+                  if (widget.product.isActive && !_isOutOfStock)
                     _buildQuantitySelector(),
                   _buildTabsSection(),
                   if (_relatedProducts.isNotEmpty) _buildRelatedProducts(),
@@ -507,7 +585,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              'SKU: ${widget.product.sku}',
+              'SKU: ${_selectedVariant?.sku ?? widget.product.sku}',
               style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
             ),
           ),
@@ -521,8 +599,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Show price range if has variants but no variant selected, or current price
                     Text(
-                      widget.product.formattedPrice,
+                      widget.product.hasVariants && _selectedVariant == null
+                          ? widget.product.priceRange
+                          : _getFormattedPrice(_currentPrice),
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -536,29 +617,55 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                         color: Colors.grey[600],
                       ),
                     ),
+                    // Show price adjustment if variant selected
+                    if (_selectedVariant != null && _selectedVariant!.priceAdjustment != 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _selectedVariant!.formattedPriceAdjustment,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _selectedVariant!.priceAdjustment > 0 ? Colors.red : Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: _getStockColor().withOpacity(0.1),
+                  color: widget.product.stockStatusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _getStockColor().withOpacity(0.3)),
+                  border: Border.all(color: widget.product.stockStatusColor.withOpacity(0.3)),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Column(
                   children: [
-                    Icon(Icons.inventory, size: 16, color: _getStockColor()),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${widget.product.stock} tersedia',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _getStockColor(),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inventory, size: 16, color: widget.product.stockStatusColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$_availableStock tersedia',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: widget.product.stockStatusColor,
+                          ),
+                        ),
+                      ],
                     ),
+                    if (widget.product.hasVariants) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total: ${widget.product.totalStock}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -584,7 +691,162 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     );
   }
 
+  Widget _buildVariantSelector() {
+    if (!widget.product.hasVariants || widget.product.variants == null || widget.product.variants!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final variants = widget.product.productVariants;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.tune, size: 20, color: Color(0xFF2E7D32)),
+              const SizedBox(width: 8),
+              const Text(
+                'Pilih Varian',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3748),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: variants.map((variant) {
+              final isSelected = _selectedVariant?.id == variant.id;
+              final isAvailable = variant.stock > 0;
+              
+              return GestureDetector(
+                onTap: isAvailable ? () {
+                  setState(() {
+                    _selectedVariant = variant;
+                    _updatePriceAndStock();
+                  });
+                } : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? const Color(0xFF2E7D32).withOpacity(0.1)
+                        : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected 
+                          ? const Color(0xFF2E7D32)
+                          : isAvailable ? Colors.grey[300]! : Colors.red[300]!,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        variant.name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isAvailable 
+                              ? (isSelected ? const Color(0xFF2E7D32) : const Color(0xFF2D3748))
+                              : Colors.red,
+                          decoration: isAvailable ? null : TextDecoration.lineThrough,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _getFormattedPrice(widget.product.price + variant.priceAdjustment),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isAvailable ? Colors.grey[700] : Colors.red,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Stok: ${variant.stock}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isAvailable ? Colors.grey[600] : Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (variant.priceAdjustment != 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          variant.formattedPriceAdjustment,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: variant.priceAdjustment > 0 ? Colors.red : Colors.green,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          if (_selectedVariant == null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Silakan pilih varian terlebih dahulu',
+                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuantitySelector() {
+    // Don't show if variant required but not selected
+    if (widget.product.hasVariants && _selectedVariant == null) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(24),
@@ -639,7 +901,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                     ),
                     _buildQuantityButton(
                       Icons.add,
-                      _quantity < widget.product.stock
+                      _quantity < _availableStock
                           ? () => setState(() => _quantity++)
                           : null,
                     ),
@@ -653,7 +915,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   const Text('Total Harga', style: TextStyle(color: Colors.grey)),
                   const SizedBox(height: 4),
                   Text(
-                    'Rp ${(widget.product.price * _quantity).toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
+                    _getFormattedPrice(_currentPrice * _quantity),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -778,43 +1040,56 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: widget.product.specifications != null && widget.product.specifications!.isNotEmpty
-                ? ListView(
-                    children: widget.product.specifications!.entries
-                        .map(
-                          (entry) => Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 120,
-                                  child: Text(
-                                    '${entry.key}:',
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    entry.value.toString(),
-                                    style: const TextStyle(color: Color(0xFF4A5568)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  )
-                : _buildEmptyState(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Basic specs
+                  _buildSpecRow('Kategori', widget.product.categoryName),
+                  _buildSpecRow('SKU', widget.product.sku),
+                  _buildSpecRow('Satuan', widget.product.unit),
+                  if (widget.product.weight != null)
+                    _buildSpecRow('Berat', '${widget.product.weight} kg'),
+                  if (widget.product.hasVariants)
+                    _buildSpecRow('Varian', '${widget.product.variants!.length} pilihan'),
+                  
+                  // Additional specifications would go here
+                  const SizedBox(height: 16),
+                  _buildEmptyState(
                     Icons.description_outlined,
                     'Spesifikasi detail akan segera ditambahkan',
                   ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecRow(String label, String value) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Color(0xFF4A5568)),
+            ),
           ),
         ],
       ),
@@ -923,7 +1198,20 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   Widget _buildBottomBar() {
-    if (!widget.product.isActive || widget.product.isOutOfStock) {
+    final canAddToCart = widget.product.isActive && 
+                        !_isOutOfStock && 
+                        (!widget.product.hasVariants || _selectedVariant != null);
+
+    if (!canAddToCart) {
+      String buttonText = 'Produk Tidak Tersedia';
+      if (!widget.product.isActive) {
+        buttonText = 'Produk Tidak Aktif';
+      } else if (_isOutOfStock) {
+        buttonText = 'Stok Habis';
+      } else if (widget.product.hasVariants && _selectedVariant == null) {
+        buttonText = 'Pilih Varian Terlebih Dahulu';
+      }
+
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -945,7 +1233,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
-            widget.product.isOutOfStock ? 'Stok Habis' : 'Produk Tidak Tersedia',
+            buttonText,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,

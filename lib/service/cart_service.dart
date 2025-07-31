@@ -45,20 +45,46 @@ class CartService extends ChangeNotifier {
     }
   }
 
-  // Add item to cart
-  Future<bool> addItem(Product product, {int quantity = 1}) async {
+  // Add item to cart with variant support
+  Future<bool> addItem(
+    Product product, {
+    int quantity = 1,
+    String? variantId,
+    String? variantName,
+    double variantPriceAdjustment = 0,
+    String? variantSku,
+    Map<String, dynamic>? variantAttributes,
+    int? variantStock,
+  }) async {
     try {
       _setLoading(true);
       _clearError();
 
       // Validate product
-      if (!product.isActive || product.isOutOfStock) {
+      if (!product.isActive || (product.stock <= 0 && !product.hasVariants)) {
         _setError('Produk tidak tersedia');
         return false;
       }
 
+      // For products with variants, validate variant
+      if (product.hasVariants && variantId == null) {
+        _setError('Silakan pilih varian produk');
+        return false;
+      }
+
+      // Determine available stock
+      final availableStock = variantStock ?? product.stock;
+      if (availableStock <= 0) {
+        _setError('Stok tidak tersedia');
+        return false;
+      }
+
+      // Create unique identifier for the item (product + variant combination)
+      final itemKey = _getItemKey(product.id, variantId);
+      
       // Check if item already exists in cart
-      final existingIndex = _items.indexWhere((item) => item.productId == product.id);
+      final existingIndex = _items.indexWhere((item) => 
+          _getItemKey(item.productId, item.variantId) == itemKey);
       
       if (existingIndex != -1) {
         // Update existing item quantity
@@ -66,20 +92,29 @@ class CartService extends ChangeNotifier {
         final newQuantity = existingItem.quantity + quantity;
         
         // Check stock limit
-        if (newQuantity > product.stock) {
-          _setError('Stok tidak mencukupi. Maksimal ${product.stock} ${product.unit}');
+        if (newQuantity > availableStock) {
+          _setError('Stok tidak mencukupi. Maksimal $availableStock ${product.unit}');
           return false;
         }
         
         _items[existingIndex] = existingItem.copyWith(quantity: newQuantity);
       } else {
         // Add new item
-        if (quantity > product.stock) {
-          _setError('Stok tidak mencukupi. Maksimal ${product.stock} ${product.unit}');
+        if (quantity > availableStock) {
+          _setError('Stok tidak mencukupi. Maksimal $availableStock ${product.unit}');
           return false;
         }
         
-        final cartItem = CartItem.fromProduct(product, quantity: quantity);
+        final cartItem = CartItem.fromProduct(
+          product,
+          quantity: quantity,
+          variantId: variantId,
+          variantName: variantName,
+          variantPriceAdjustment: variantPriceAdjustment,
+          variantSku: variantSku,
+          variantAttributes: variantAttributes,
+          variantStock: variantStock,
+        );
         _items.add(cartItem);
       }
 
@@ -94,6 +129,11 @@ class CartService extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  // Generate unique key for item (product + variant)
+  String _getItemKey(String productId, String? variantId) {
+    return '${productId}_${variantId ?? 'default'}';
   }
 
   // Remove item from cart
@@ -177,24 +217,33 @@ class CartService extends ChangeNotifier {
     }
   }
 
-  // Get item by product ID
-  CartItem? getItemByProductId(String productId) {
+  // Get item by product ID and variant ID
+  CartItem? getItem(String productId, {String? variantId}) {
     try {
-      return _items.firstWhere((item) => item.productId == productId);
+      return _items.firstWhere((item) => 
+          item.productId == productId && 
+          item.variantId == variantId);
     } catch (e) {
       return null;
     }
   }
 
-  // Check if product is in cart
-  bool isProductInCart(String productId) {
-    return _items.any((item) => item.productId == productId);
+  // Check if product/variant combination is in cart
+  bool isInCart(String productId, {String? variantId}) {
+    return _items.any((item) => 
+        item.productId == productId && 
+        item.variantId == variantId);
   }
 
-  // Get quantity of product in cart
-  int getProductQuantity(String productId) {
-    final item = getItemByProductId(productId);
+  // Get quantity of product/variant in cart
+  int getQuantity(String productId, {String? variantId}) {
+    final item = getItem(productId, variantId: variantId);
     return item?.quantity ?? 0;
+  }
+
+  // Get all variants of a product in cart
+  List<CartItem> getProductVariants(String productId) {
+    return _items.where((item) => item.productId == productId).toList();
   }
 
   // Validate cart items (check stock availability)
@@ -210,21 +259,45 @@ class CartService extends ChangeNotifier {
             .get();
         
         if (!productDoc.exists) {
-          issues.add('${item.productName} tidak lagi tersedia');
+          issues.add('${item.displayName} tidak lagi tersedia');
           continue;
         }
         
         final product = Product.fromFirestore(productDoc);
         
         if (!product.isActive) {
-          issues.add('${item.productName} sedang tidak aktif');
-        } else if (product.isOutOfStock) {
-          issues.add('${item.productName} stok habis');
-        } else if (item.quantity > product.stock) {
-          issues.add('${item.productName} stok hanya tersisa ${product.stock} ${product.unit}');
+          issues.add('${item.displayName} sedang tidak aktif');
+          continue;
+        }
+
+        // Check variant-specific stock if applicable
+        if (item.hasVariant && product.hasVariants && product.variants != null) {
+          final variant = product.variants!.firstWhere(
+            (v) => v['id'] == item.variantId,
+            orElse: () => <String, dynamic>{},
+          );
+          
+          if (variant == null) {
+            issues.add('Varian ${item.variantName} dari ${item.productName} tidak lagi tersedia');
+            continue;
+          }
+
+          final variantStock = variant['stock'] ?? 0;
+          if (variantStock <= 0) {
+            issues.add('${item.displayName} stok habis');
+          } else if (item.quantity > variantStock) {
+            issues.add('${item.displayName} stok hanya tersisa $variantStock ${product.unit}');
+          }
+        } else {
+          // Check regular product stock
+          if (product.isOutOfStock) {
+            issues.add('${item.displayName} stok habis');
+          } else if (item.quantity > product.stock) {
+            issues.add('${item.displayName} stok hanya tersisa ${product.stock} ${product.unit}');
+          }
         }
       } catch (e) {
-        issues.add('Gagal memeriksa ${item.productName}');
+        issues.add('Gagal memeriksa ${item.displayName}');
       }
     }
     
@@ -321,7 +394,6 @@ class CartService extends ChangeNotifier {
 
       _setLoading(true);
 
-      // Get cart from Firebase
       final cartDoc = await FirebaseFirestore.instance
           .collection(_cartCollection)
           .doc(user.uid)
@@ -337,7 +409,8 @@ class CartService extends ChangeNotifier {
           // Merge with local items
           for (final localItem in _items) {
             final existingIndex = firebaseItems.indexWhere(
-              (item) => item.productId == localItem.productId,
+              (item) => _getItemKey(item.productId, item.variantId) == 
+                       _getItemKey(localItem.productId, localItem.variantId),
             );
 
             if (existingIndex != -1) {

@@ -84,7 +84,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     double total = 0;
     for (final item in cartService.items) {
       if (_selectedItems.contains(item.id)) {
-        total += item.productPrice * item.quantity;
+        total += item.totalPrice;
       }
     }
     return total;
@@ -288,8 +288,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   child: ListView(
                     children: [
                       _buildCartItems(cartService),
-                      // _buildVoucherSection(),
-                      // _buildShippingSection(),
                       _buildOrderSummary(cartService),
                       const SizedBox(height: 100), // Space for bottom bar
                     ],
@@ -495,7 +493,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           if (_selectedItems.isNotEmpty)
             TextButton(
               onPressed: () {
-                // Delete selected items
                 final itemsToRemove = _selectedItems.toList();
                 for (final itemId in itemsToRemove) {
                   cartService.removeItem(itemId);
@@ -545,177 +542,13 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 setState(() {
                   _selectedItems.remove(item.id);
                 });
-                _showSuccessSnackBar('${item.productName} dihapus dari keranjang');
+                _showSuccessSnackBar('${item.displayName} dihapus dari keranjang');
               },
             ),
           );
         },
       ),
     );
-  }
-
-  Widget _buildVoucherSection() {
-    return Container(
-      color: Colors.white,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Icon(
-            Icons.local_offer_outlined,
-            color: Colors.orange.shade600,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Voucher Toko',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF2D3748),
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: _showVoucherModal,
-            child: Row(
-              children: [
-                Text(
-                  _selectedVoucher.isEmpty ? 'Pilih Voucher' : _selectedVoucher,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _selectedVoucher.isEmpty ? Colors.grey : const Color(0xFF2E7D32),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 14,
-                  color: Colors.grey.shade600,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShippingSection() {
-    return Container(
-      color: Colors.white,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.local_shipping_outlined,
-                color: Colors.blue.shade600,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Pengiriman',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF2D3748),
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: _showShippingModal,
-                child: Row(
-                  children: [
-                    Text(
-                      _getShippingLabel(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF2E7D32),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 14,
-                      color: Colors.grey.shade600,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const SizedBox(width: 32),
-              Expanded(
-                child: Text(
-                  'Estimasi tiba: ${_getShippingEstimate()}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ),
-              Text(
-                _getShippingPrice(),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF2D3748),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getShippingLabel() {
-    switch (_selectedShipping) {
-      case 'regular':
-        return 'Reguler';
-      case 'express':
-        return 'Express';
-      case 'same_day':
-        return 'Same Day';
-      default:
-        return 'Reguler';
-    }
-  }
-
-  String _getShippingEstimate() {
-    switch (_selectedShipping) {
-      case 'regular':
-        return '2-3 hari';
-      case 'express':
-        return '1-2 hari';
-      case 'same_day':
-        return 'Hari ini';
-      default:
-        return '2-3 hari';
-    }
-  }
-
-  String _getShippingPrice() {
-    switch (_selectedShipping) {
-      case 'regular':
-        return 'Rp 15.000';
-      case 'express':
-        return 'Rp 25.000';
-      case 'same_day':
-        return 'Rp 35.000';
-      default:
-        return 'Rp 15.000';
-    }
   }
 
   Widget _buildOrderSummary(CartService cartService) {
@@ -791,6 +624,19 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         return 35000;
       default:
         return 15000;
+    }
+  }
+
+  String _getShippingPrice() {
+    switch (_selectedShipping) {
+      case 'regular':
+        return 'Rp 15.000';
+      case 'express':
+        return 'Rp 25.000';
+      case 'same_day':
+        return 'Rp 35.000';
+      default:
+        return 'Rp 15.000';
     }
   }
 
@@ -1137,7 +983,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   }
 }
 
-// Cart Item Tile dengan style e-commerce
+// Cart Item Tile dengan variant support
 class _CartItemTile extends StatelessWidget {
   final CartItem item;
   final bool isSelected;
@@ -1228,6 +1074,27 @@ class _CartItemTile extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
+        
+        // Variant info
+        if (item.hasVariant) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2E7D32).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${item.variantName}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF2E7D32),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+        
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1244,13 +1111,31 @@ class _CartItemTile extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          item.formattedPrice,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2E7D32),
-          ),
+        
+        // Price with variant adjustment indicator
+        Row(
+          children: [
+            Text(
+              item.formattedPrice,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2E7D32),
+              ),
+            ),
+            if (item.hasVariant && item.variantPriceAdjustment != 0) ...[
+              const SizedBox(width: 4),
+              Icon(
+                item.variantPriceAdjustment > 0 
+                    ? Icons.trending_up 
+                    : Icons.trending_down,
+                size: 12,
+                color: item.variantPriceAdjustment > 0 
+                    ? Colors.orange 
+                    : Colors.green,
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -1306,19 +1191,35 @@ class _CartItemTile extends StatelessWidget {
                 color: Color(0xFF2D3748),
               ),
             ),
-            GestureDetector(
-              onTap: onRemove,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Text(
-                  'Hapus',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    decoration: TextDecoration.underline,
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.hasVariant && item.variantSku != null) ...[
+                  Text(
+                    'SKU: ${item.variantSku}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                GestureDetector(
+                  onTap: onRemove,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text(
+                      'Hapus',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

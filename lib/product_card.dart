@@ -154,18 +154,18 @@ class _ProductCardState extends State<ProductCard>
                   : _buildImagePlaceholder(),
             ),
             
-            // Stock Status Badge
+            // Stock Status Badge - Menggunakan stockStatusColor dari model
             Positioned(
               top: 12,
               left: 12,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStockColor(),
+                  color: widget.product.stockStatusColor,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: _getStockColor().withOpacity(0.3),
+                      color: widget.product.stockStatusColor.withOpacity(0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -207,6 +207,39 @@ class _ProductCardState extends State<ProductCard>
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            
+            // Variants Indicator - Jika produk memiliki varian
+            if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty)
+              Positioned(
+                bottom: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.tune,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${widget.product.variants!.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -326,16 +359,18 @@ class _ProductCardState extends State<ProductCard>
             
             const SizedBox(height: 8),
             
-            // Price Section
+            // Price Section - Menggunakan priceRange jika ada varian
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Price
+                // Price - Support untuk range harga varian
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    widget.product.formattedPrice,
+                    widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty
+                        ? widget.product.priceRange
+                        : widget.product.formattedPrice,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -358,10 +393,33 @@ class _ProductCardState extends State<ProductCard>
             
             const SizedBox(height: 8),
             
-            // Add to Cart Button
+            // Stock Info and Add to Cart Button
             Row(
               children: [
-                const Spacer(),
+                // Stock Info - Menggunakan totalStock dari model
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Stok: ${widget.product.totalStock}',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: widget.product.stockStatusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (widget.product.hasVariants && widget.product.variants != null)
+                        Text(
+                          '${widget.product.variants!.length} varian',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 _buildAddToCartButton(),
               ],
             ),
@@ -374,8 +432,8 @@ class _ProductCardState extends State<ProductCard>
   Widget _buildAddToCartButton() {
     return Consumer<CartService>(
       builder: (context, cartService, child) {
-        final isInCart = cartService.isProductInCart(widget.product.id);
-        final quantity = cartService.getProductQuantity(widget.product.id);
+        final isInCart = cartService.isInCart(widget.product.id);
+        final quantity = cartService.getQuantity(widget.product.id);
         final isEnabled = widget.product.isActive && !widget.product.isOutOfStock;
         
         return AnimatedContainer(
@@ -491,12 +549,6 @@ class _ProductCardState extends State<ProductCard>
         ),
       );
     }
-  }
-
-  Color _getStockColor() {
-    if (widget.product.isOutOfStock) return Colors.red;
-    if (widget.product.isLowStock) return Colors.orange;
-    return const Color(0xFF2E7D32);
   }
 }
 
@@ -645,14 +697,14 @@ class _ProductListCardState extends State<ProductListCard>
                     size: 36,
                   ),
             
-            // Stock badge for list view
+            // Stock badge for list view - Menggunakan stockStatusColor
             Positioned(
               top: 4,
               left: 4,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _getStockColor(),
+                  color: widget.product.stockStatusColor,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -665,6 +717,28 @@ class _ProductListCardState extends State<ProductListCard>
                 ),
               ),
             ),
+            
+            // Variants indicator untuk list view
+            if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty)
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${widget.product.variants!.length}V',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -709,7 +783,7 @@ class _ProductListCardState extends State<ProductListCard>
         
         const SizedBox(height: 8),
         
-        // Price and Stock Status Row
+        // Price, Stock Status dan Info Row
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -723,7 +797,9 @@ class _ProductListCardState extends State<ProductListCard>
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      widget.product.formattedPrice,
+                      widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty
+                          ? widget.product.priceRange
+                          : widget.product.formattedPrice,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -746,39 +822,46 @@ class _ProductListCardState extends State<ProductListCard>
             
             const SizedBox(width: 8),
             
-            // Stock Status Badge
+            // Stock Info Column
             Flexible(
               flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getStockColor().withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _getStockColor().withOpacity(0.3),
-                  ),
-                ),
-                child: FittedBox(
-                  child: Text(
-                    widget.product.stockStatus,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: _getStockColor(),
-                      fontWeight: FontWeight.w600,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: widget.product.stockStatusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: widget.product.stockStatusColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: FittedBox(
+                      child: Text(
+                        widget.product.stockStatus,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: widget.product.stockStatusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Stok: ${widget.product.totalStock}',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ],
     );
-  }
-
-  Color _getStockColor() {
-    if (widget.product.isOutOfStock) return Colors.red;
-    if (widget.product.isLowStock) return Colors.orange;
-    return const Color(0xFF2E7D32);
   }
 }

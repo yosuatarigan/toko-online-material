@@ -1,5 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'product.dart';
+import '../models/product.dart';
 
 class CartItem {
   final String id;
@@ -7,12 +6,19 @@ class CartItem {
   final String productName;
   final String productImage;
   final double productPrice;
-  final String productUnit;
+  final int quantity;
+  final String categoryId;
   final String categoryName;
-  final String sku;
+  final String productUnit;
   final int maxStock;
-  int quantity;
   final DateTime addedAt;
+  
+  // Variant properties
+  final String? variantId;
+  final String? variantName;
+  final double variantPriceAdjustment;
+  final String? variantSku;
+  final Map<String, dynamic>? variantAttributes;
 
   CartItem({
     required this.id,
@@ -20,28 +26,73 @@ class CartItem {
     required this.productName,
     required this.productImage,
     required this.productPrice,
-    required this.productUnit,
-    required this.categoryName,
-    required this.sku,
-    required this.maxStock,
     required this.quantity,
+    required this.categoryId,
+    required this.categoryName,
+    required this.productUnit,
+    required this.maxStock,
     required this.addedAt,
+    this.variantId,
+    this.variantName,
+    this.variantPriceAdjustment = 0,
+    this.variantSku,
+    this.variantAttributes,
   });
 
+  // Get effective price (base price + variant adjustment)
+  double get effectivePrice => productPrice + variantPriceAdjustment;
+  
+  // Get total price for this item
+  double get totalPrice => effectivePrice * quantity;
+  
+  // Get formatted price
+  String get formattedPrice => 'Rp ${effectivePrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  
+  // Get formatted total price
+  String get formattedTotalPrice => 'Rp ${totalPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  
+  // Check if item has variant
+  bool get hasVariant => variantId != null && variantName != null;
+  
+  // Get display name (product name + variant if any)
+  String get displayName {
+    if (hasVariant) {
+      return '$productName - $variantName';
+    }
+    return productName;
+  }
+
   // Create CartItem from Product
-  factory CartItem.fromProduct(Product product, {int quantity = 1}) {
+  factory CartItem.fromProduct(
+    Product product, {
+    int quantity = 1,
+    String? variantId,
+    String? variantName,
+    double variantPriceAdjustment = 0,
+    String? variantSku,
+    Map<String, dynamic>? variantAttributes,
+    int? variantStock,
+  }) {
+    final now = DateTime.now();
+    final itemId = '${product.id}_${variantId ?? 'default'}_${now.millisecondsSinceEpoch}';
+    
     return CartItem(
-      id: '${product.id}_${DateTime.now().millisecondsSinceEpoch}',
+      id: itemId,
       productId: product.id,
       productName: product.name,
       productImage: product.imageUrls.isNotEmpty ? product.imageUrls.first : '',
       productPrice: product.price,
-      productUnit: product.unit,
-      categoryName: product.categoryName,
-      sku: product.sku,
-      maxStock: product.stock,
       quantity: quantity,
-      addedAt: DateTime.now(),
+      categoryId: product.categoryId,
+      categoryName: product.categoryName,
+      productUnit: product.unit,
+      maxStock: variantStock ?? product.stock,
+      addedAt: now,
+      variantId: variantId,
+      variantName: variantName,
+      variantPriceAdjustment: variantPriceAdjustment,
+      variantSku: variantSku,
+      variantAttributes: variantAttributes,
     );
   }
 
@@ -53,12 +104,17 @@ class CartItem {
       'productName': productName,
       'productImage': productImage,
       'productPrice': productPrice,
-      'productUnit': productUnit,
-      'categoryName': categoryName,
-      'sku': sku,
-      'maxStock': maxStock,
       'quantity': quantity,
-      'addedAt': addedAt.millisecondsSinceEpoch,
+      'categoryId': categoryId,
+      'categoryName': categoryName,
+      'productUnit': productUnit,
+      'maxStock': maxStock,
+      'addedAt': addedAt.toIso8601String(),
+      'variantId': variantId,
+      'variantName': variantName,
+      'variantPriceAdjustment': variantPriceAdjustment,
+      'variantSku': variantSku,
+      'variantAttributes': variantAttributes,
     };
   }
 
@@ -70,63 +126,38 @@ class CartItem {
       productName: map['productName'] ?? '',
       productImage: map['productImage'] ?? '',
       productPrice: (map['productPrice'] ?? 0).toDouble(),
-      productUnit: map['productUnit'] ?? 'pcs',
-      categoryName: map['categoryName'] ?? '',
-      sku: map['sku'] ?? '',
-      maxStock: map['maxStock'] ?? 0,
       quantity: map['quantity'] ?? 1,
-      addedAt: DateTime.fromMillisecondsSinceEpoch(map['addedAt'] ?? 0),
+      categoryId: map['categoryId'] ?? '',
+      categoryName: map['categoryName'] ?? '',
+      productUnit: map['productUnit'] ?? 'pcs',
+      maxStock: map['maxStock'] ?? 0,
+      addedAt: DateTime.parse(map['addedAt'] ?? DateTime.now().toIso8601String()),
+      variantId: map['variantId'],
+      variantName: map['variantName'],
+      variantPriceAdjustment: (map['variantPriceAdjustment'] ?? 0).toDouble(),
+      variantSku: map['variantSku'],
+      variantAttributes: map['variantAttributes'],
     );
   }
 
-  // Convert to JSON string
-  String toJson() {
-    return '${toMap()}';
-  }
-
-  // Create CartItem from JSON
-  factory CartItem.fromJson(Map<String, dynamic> json) {
-    return CartItem.fromMap(json);
-  }
-
-  // Calculate total price for this item
-  double get totalPrice => productPrice * quantity;
-
-  // Formatted price
-  String get formattedPrice {
-    return 'Rp ${productPrice.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  // Formatted total price
-  String get formattedTotalPrice {
-    return 'Rp ${totalPrice.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  // Check if quantity is valid
-  bool get isValidQuantity => quantity > 0 && quantity <= maxStock;
-
-  // Check if item is available (has stock)
-  bool get isAvailable => maxStock > 0;
-
-  // Copy with method
+  // Copy with method for updates
   CartItem copyWith({
     String? id,
     String? productId,
     String? productName,
     String? productImage,
     double? productPrice,
-    String? productUnit,
-    String? categoryName,
-    String? sku,
-    int? maxStock,
     int? quantity,
+    String? categoryId,
+    String? categoryName,
+    String? productUnit,
+    int? maxStock,
     DateTime? addedAt,
+    String? variantId,
+    String? variantName,
+    double? variantPriceAdjustment,
+    String? variantSku,
+    Map<String, dynamic>? variantAttributes,
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -134,120 +165,74 @@ class CartItem {
       productName: productName ?? this.productName,
       productImage: productImage ?? this.productImage,
       productPrice: productPrice ?? this.productPrice,
-      productUnit: productUnit ?? this.productUnit,
-      categoryName: categoryName ?? this.categoryName,
-      sku: sku ?? this.sku,
-      maxStock: maxStock ?? this.maxStock,
       quantity: quantity ?? this.quantity,
+      categoryId: categoryId ?? this.categoryId,
+      categoryName: categoryName ?? this.categoryName,
+      productUnit: productUnit ?? this.productUnit,
+      maxStock: maxStock ?? this.maxStock,
       addedAt: addedAt ?? this.addedAt,
+      variantId: variantId ?? this.variantId,
+      variantName: variantName ?? this.variantName,
+      variantPriceAdjustment: variantPriceAdjustment ?? this.variantPriceAdjustment,
+      variantSku: variantSku ?? this.variantSku,
+      variantAttributes: variantAttributes ?? this.variantAttributes,
     );
-  }
-
-  @override
-  String toString() {
-    return 'CartItem(id: $id, productName: $productName, quantity: $quantity, totalPrice: $totalPrice)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CartItem && other.id == id;
+    return other is CartItem &&
+        other.productId == productId &&
+        other.variantId == variantId;
   }
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => productId.hashCode ^ (variantId?.hashCode ?? 0);
 }
 
-// Cart summary model
+// Cart Summary class
 class CartSummary {
-  final List<CartItem> items;
-  final int totalItems;
+  final int itemCount;
   final int totalQuantity;
   final double subtotal;
-  final double tax;
   final double shipping;
+  final double tax;
   final double discount;
   final double total;
 
   CartSummary({
-    required this.items,
-    required this.totalItems,
+    required this.itemCount,
     required this.totalQuantity,
     required this.subtotal,
-    this.tax = 0.0,
-    this.shipping = 0.0,
-    this.discount = 0.0,
-  }) : total = subtotal + tax + shipping - discount;
+    this.shipping = 0,
+    this.tax = 0,
+    this.discount = 0,
+  }) : total = subtotal + shipping + tax - discount;
 
-  // Create empty cart summary
-  factory CartSummary.empty() {
-    return CartSummary(
-      items: [],
-      totalItems: 0,
-      totalQuantity: 0,
-      subtotal: 0.0,
-    );
-  }
-
-  // Create cart summary from items
-  factory CartSummary.fromItems(List<CartItem> items, {
-    double tax = 0.0,
-    double shipping = 0.0,
-    double discount = 0.0,
+  factory CartSummary.fromItems(
+    List<CartItem> items, {
+    double shipping = 0,
+    double tax = 0,
+    double discount = 0,
   }) {
-    final totalQuantity = items.fold<int>(0, (sum, item) => sum + item.quantity);
-    final subtotal = items.fold<double>(0, (sum, item) => sum + item.totalPrice);
-    
+    final itemCount = items.length;
+    final totalQuantity = items.fold(0, (sum, item) => sum + item.quantity);
+    final subtotal = items.fold(0.0, (sum, item) => sum + item.totalPrice);
+
     return CartSummary(
-      items: List.unmodifiable(items),
-      totalItems: items.length,
+      itemCount: itemCount,
       totalQuantity: totalQuantity,
       subtotal: subtotal,
-      tax: tax,
       shipping: shipping,
+      tax: tax,
       discount: discount,
     );
   }
 
-  // Formatted prices
-  String get formattedSubtotal {
-    return 'Rp ${subtotal.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  String get formattedTotal {
-    return 'Rp ${total.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  String get formattedTax {
-    return 'Rp ${tax.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  String get formattedShipping {
-    return 'Rp ${shipping.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  String get formattedDiscount {
-    return 'Rp ${discount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  // Check if cart is empty
-  bool get isEmpty => items.isEmpty;
-
-  // Check if cart has items
-  bool get isNotEmpty => items.isNotEmpty;
+  String get formattedSubtotal => 'Rp ${subtotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  String get formattedShipping => 'Rp ${shipping.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  String get formattedTax => 'Rp ${tax.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  String get formattedDiscount => 'Rp ${discount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  String get formattedTotal => 'Rp ${total.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
 }

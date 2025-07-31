@@ -1,110 +1,115 @@
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path/path.dart' as path;
 
 class ImageUploadService {
-  static final FirebaseStorage _storage = FirebaseStorage.instance;
   static final ImagePicker _picker = ImagePicker();
+  static final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Pick image from gallery or camera
-  static Future<XFile?> pickImage({ImageSource source = ImageSource.gallery}) async {
+  // Pick single image from camera or gallery
+  static Future<XFile?> pickImage({required ImageSource source}) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 80,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
       );
       return image;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error picking image: $e');
-      }
+      print('Error picking image: $e');
       return null;
     }
   }
 
-  // Pick multiple images
-  static Future<List<XFile>?> pickMultipleImages() async {
+  // Pick multiple images from gallery
+  static Future<List<XFile>?> pickMultipleImages({int maxImages = 10}) async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage(
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 80,
+      final List<XFile>? images = await _picker.pickMultiImage (
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
       );
+      
+      if (images != null && images.length > maxImages) {
+        return images.take(maxImages).toList();
+      }
+      
       return images;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error picking multiple images: $e');
-      }
+      print('Error picking multiple images: $e');
       return null;
     }
+  }
+
+  // Show dialog to choose image source
+  static Future<ImageSource?> showImageSourceDialog(BuildContext context) async {
+    return await showDialog<ImageSource>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Pilih Sumber Gambar'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Kamera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Galeri'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Get image file size in MB
+  static Future<double> getImageSize(XFile image) async {
+    final File file = File(image.path);
+    final int fileSizeInBytes = await file.length();
+    final double fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+    return fileSizeInMB;
   }
 
   // Upload single image to Firebase Storage
-  static Future<String?> uploadImage({
+  static Future<String> uploadImage({
     required XFile imageFile,
     required String folder,
-    String? fileName,
-    Function(double)? onProgress,
+    String? customName,
   }) async {
     try {
-      // Generate unique filename if not provided
-      fileName ??= '${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      final String fileName = customName ?? 
+          '${DateTime.now().millisecondsSinceEpoch}_${path.basename(imageFile.path)}';
       
-      // Create storage reference
       final Reference ref = _storage.ref().child('$folder/$fileName');
       
-      // Upload file
-      late UploadTask uploadTask;
+      final UploadTask uploadTask = ref.putFile(File(imageFile.path));
       
-      if (kIsWeb) {
-        // For web platform
-        final Uint8List imageData = await imageFile.readAsBytes();
-        uploadTask = ref.putData(
-          imageData,
-          SettableMetadata(contentType: 'image/${imageFile.name.split('.').last}'),
-        );
-      } else {
-        // For mobile platforms
-        final File file = File(imageFile.path);
-        uploadTask = ref.putFile(
-          file,
-          SettableMetadata(contentType: 'image/${imageFile.name.split('.').last}'),
-        );
-      }
-
-      // Listen to upload progress
-      if (onProgress != null) {
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          final double progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          onProgress(progress);
-        });
-      }
-
-      // Wait for upload to complete
       final TaskSnapshot snapshot = await uploadTask;
-      
-      // Get download URL
       final String downloadUrl = await snapshot.ref.getDownloadURL();
-      
-      if (kDebugMode) {
-        print('Image uploaded successfully: $downloadUrl');
-      }
       
       return downloadUrl;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error uploading image: $e');
-      }
-      return null;
+      print('Error uploading image: $e');
+      throw Exception('Gagal mengupload gambar: $e');
     }
   }
 
-  // Upload multiple images
+  // Upload multiple images to Firebase Storage
   static Future<List<String>> uploadMultipleImages({
     required List<XFile> imageFiles,
     required String folder,
@@ -112,118 +117,161 @@ class ImageUploadService {
   }) async {
     final List<String> downloadUrls = [];
     
-    for (int i = 0; i < imageFiles.length; i++) {
-      final String? url = await uploadImage(
-        imageFile: imageFiles[i],
-        folder: folder,
-      );
-      
-      if (url != null) {
-        downloadUrls.add(url);
+    try {
+      for (int i = 0; i < imageFiles.length; i++) {
+        final String fileName = 
+            '${DateTime.now().millisecondsSinceEpoch}_$i${path.extension(imageFiles[i].path)}';
+        
+        final Reference ref = _storage.ref().child('$folder/$fileName');
+        final UploadTask uploadTask = ref.putFile(File(imageFiles[i].path));
+        
+        final TaskSnapshot snapshot = await uploadTask;
+        final String downloadUrl = await snapshot.ref.getDownloadURL();
+        
+        downloadUrls.add(downloadUrl);
+        
+        // Call progress callback
+        onProgress?.call(i + 1, imageFiles.length);
       }
       
-      // Report progress
-      if (onProgress != null) {
-        onProgress(i + 1, imageFiles.length);
+      return downloadUrls;
+    } catch (e) {
+      print('Error uploading multiple images: $e');
+      throw Exception('Gagal mengupload gambar: $e');
+    }
+  }
+
+  // Delete image from Firebase Storage
+  static Future<void> deleteImage(String imageUrl) async {
+    try {
+      final Reference ref = _storage.refFromURL(imageUrl);
+      await ref.delete();
+    } catch (e) {
+      print('Error deleting image: $e');
+      // Don't throw error for delete operations to avoid blocking user actions
+    }
+  }
+
+  // Delete multiple images from Firebase Storage
+  static Future<void> deleteMultipleImages(List<String> imageUrls) async {
+    try {
+      final List<Future<void>> deleteTasks = imageUrls
+          .map((url) => deleteImage(url))
+          .toList();
+      
+      await Future.wait(deleteTasks);
+    } catch (e) {
+      print('Error deleting multiple images: $e');
+      // Don't throw error for delete operations
+    }
+  }
+
+  // Compress image before upload (optional)
+  static Future<XFile?> compressImage({
+    required XFile imageFile,
+    int quality = 85,
+    int maxWidth = 1920,
+    int maxHeight = 1920,
+  }) async {
+    try {
+      // This would require image compression package like flutter_image_compress
+      // For now, we use the built-in compression from ImagePicker
+      return imageFile;
+    } catch (e) {
+      print('Error compressing image: $e');
+      return imageFile;
+    }
+  }
+
+  // Get image dimensions
+  static Future<Size?> getImageDimensions(XFile imageFile) async {
+    try {
+      final File file = File(imageFile.path);
+      // This would require image package to get dimensions
+      // For now, return null
+      return null;
+    } catch (e) {
+      print('Error getting image dimensions: $e');
+      return null;
+    }
+  }
+
+  // Validate image file
+  static bool isValidImageFile(XFile imageFile) {
+    final String extension = path.extension(imageFile.path).toLowerCase();
+    final List<String> validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    
+    return validExtensions.contains(extension);
+  }
+
+  // Get image file extension
+  static String getImageExtension(XFile imageFile) {
+    return path.extension(imageFile.path).toLowerCase();
+  }
+
+  // Generate unique filename
+  static String generateUniqueFileName({
+    String? originalName,
+    String? extension,
+  }) {
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String ext = extension ?? '.jpg';
+    
+    if (originalName != null) {
+      final String nameWithoutExt = path.basenameWithoutExtension(originalName);
+      return '${timestamp}_${nameWithoutExt}$ext';
+    }
+    
+    return '$timestamp$ext';
+  }
+
+  // Batch upload with retry mechanism
+  static Future<List<String>> uploadImagesWithRetry({
+    required List<XFile> imageFiles,
+    required String folder,
+    int maxRetries = 3,
+    Function(int completed, int total)? onProgress,
+    Function(String error)? onError,
+  }) async {
+    final List<String> downloadUrls = [];
+    
+    for (int i = 0; i < imageFiles.length; i++) {
+      int retryCount = 0;
+      bool uploaded = false;
+      
+      while (retryCount < maxRetries && !uploaded) {
+        try {
+          final String url = await uploadImage(
+            imageFile: imageFiles[i],
+            folder: folder,
+          );
+          
+          downloadUrls.add(url);
+          uploaded = true;
+          onProgress?.call(i + 1, imageFiles.length);
+        } catch (e) {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            onError?.call('Gagal mengupload gambar ${i + 1} setelah $maxRetries percobaan: $e');
+            throw Exception('Gagal mengupload gambar ${i + 1}');
+          }
+          
+          // Wait before retry
+          await Future.delayed(Duration(seconds: retryCount));
+        }
       }
     }
     
     return downloadUrls;
   }
 
-  // Delete image from Firebase Storage
-  static Future<bool> deleteImage(String imageUrl) async {
+  // Clear image cache (if using cached_network_image)
+  static Future<void> clearImageCache() async {
     try {
-      // Extract file path from URL
-      final Reference ref = _storage.refFromURL(imageUrl);
-      await ref.delete();
-      
-      if (kDebugMode) {
-        print('Image deleted successfully: $imageUrl');
-      }
-      
-      return true;
+      // This would clear cached_network_image cache
+      // await CachedNetworkImage.evictFromCache(imageUrl);
     } catch (e) {
-      if (kDebugMode) {
-        print('Error deleting image: $e');
-      }
-      return false;
+      print('Error clearing image cache: $e');
     }
-  }
-
-  // Delete multiple images
-  static Future<List<bool>> deleteMultipleImages(List<String> imageUrls) async {
-    final List<bool> results = [];
-    
-    for (String url in imageUrls) {
-      final bool success = await deleteImage(url);
-      results.add(success);
-    }
-    
-    return results;
-  }
-
-  // Get image file size in MB
-  static Future<double> getImageSize(XFile imageFile) async {
-    try {
-      final int sizeInBytes = await imageFile.length();
-      return sizeInBytes / (1024 * 1024); // Convert to MB
-    } catch (e) {
-      return 0.0;
-    }
-  }
-
-  // Validate image file
-  static bool isValidImage(XFile imageFile) {
-    final List<String> allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    final String extension = imageFile.name.split('.').last.toLowerCase();
-    return allowedExtensions.contains(extension);
-  }
-
-  // Get image dimensions (for mobile only)
-  static Future<Map<String, int>?> getImageDimensions(XFile imageFile) async {
-    if (kIsWeb) return null;
-    
-    try {
-      final File file = File(imageFile.path);
-      // This would require additional package like flutter_image_compress
-      // For now, return null
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Show image source selection dialog
-  static Future<ImageSource?> showImageSourceDialog(context) async {
-    return await showDialog<ImageSource>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Pilih Sumber Gambar'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Galeri'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Kamera'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Compress image quality based on file size
-  static int getOptimalQuality(double sizeInMB) {
-    if (sizeInMB > 5) return 60;
-    if (sizeInMB > 3) return 70;
-    if (sizeInMB > 1) return 80;
-    return 85;
   }
 }
