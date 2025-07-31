@@ -44,6 +44,42 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
     super.dispose();
   }
 
+  // Helper methods untuk mengkonversi data dari database
+  IconData _getIconData(String iconName) {
+    switch (iconName.toLowerCase()) {
+      case 'foundation':
+        return Icons.foundation;
+      case 'build':
+        return Icons.build;
+      case 'grid_4x4':
+        return Icons.grid_4x4;
+      case 'palette':
+        return Icons.palette;
+      case 'hardware':
+        return Icons.hardware;
+      case 'construction':
+        return Icons.construction;
+      case 'home_repair_service':
+        return Icons.home_repair_service;
+      case 'architecture':
+        return Icons.architecture;
+      case 'carpenter':
+        return Icons.carpenter;
+      case 'plumbing':
+        return Icons.plumbing;
+      default:
+        return Icons.category;
+    }
+  }
+
+  Color _getColor(String colorString) {
+    try {
+      return Color(int.parse(colorString));
+    } catch (e) {
+      return const Color(0xFF2196F3);
+    }
+  }
+
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
   }
@@ -589,14 +625,14 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
             ),
           ),
           const SizedBox(height: 16),
-          _buildCategoriesChips(),
+          _buildCategoriesGrid(),
           const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _buildCategoriesChips() {
+  Widget _buildCategoriesGrid() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('categories')
@@ -604,9 +640,10 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SizedBox(
-            height: 50,
-            child: Center(child: CircularProgressIndicator()),
+          return Container(
+            height: 120,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -614,18 +651,43 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
             .map((doc) => Category.fromFirestore(doc))
             .toList();
 
-        return SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
             children: [
-              _buildCategoryChip('Semua', '', _selectedCategoryId.isEmpty),
-              ...categories.map((category) => _buildCategoryChip(
-                category.name,
-                category.id,
-                _selectedCategoryId == category.id,
-              )),
+              // "Semua" category sebagai item pertama
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: _buildCategoryCard(
+                  'Semua Kategori',
+                  '',
+                  Icons.apps,
+                  const Color(0xFF2E7D32),
+                  _selectedCategoryId.isEmpty,
+                ),
+              ),
+              // Categories grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.8,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return _buildCategoryCard(
+                    category.name,
+                    category.id,
+                    _getIconData(category.iconName),
+                    _getColor(category.color),
+                    _selectedCategoryId == category.id,
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -633,34 +695,90 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildCategoryChip(String label, String value, bool isSelected) {
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      child: FilterChip(
-        label: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFF4A5568),
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+  Widget _buildCategoryCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    bool isSelected,
+  ) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        gradient: isSelected
+            ? LinearGradient(
+                colors: [color, color.withOpacity(0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : LinearGradient(
+                colors: [Colors.white, Colors.grey.shade50],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isSelected 
+                ? color.withOpacity(0.3) 
+                : Colors.black.withOpacity(0.05),
+            blurRadius: isSelected ? 12 : 8,
+            offset: const Offset(0, 4),
+            spreadRadius: isSelected ? 2 : 0,
+          ),
+        ],
+        border: Border.all(
+          color: isSelected 
+              ? color.withOpacity(0.3) 
+              : Colors.grey.shade200,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            setState(() {
+              _selectedCategoryId = _selectedCategoryId == value ? '' : value;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? Colors.white.withOpacity(0.2)
+                        : color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 24,
+                    color: isSelected ? Colors.white : color,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.white : const Color(0xFF2D3748),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        selected: isSelected,
-        onSelected: (selected) {
-          setState(() {
-            _selectedCategoryId = selected ? value : '';
-          });
-        },
-        backgroundColor: Colors.white,
-        selectedColor: Colors.green.shade600,
-        checkmarkColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(25),
-          side: BorderSide(
-            color: isSelected ? Colors.green.shade600 : Colors.grey.shade300,
-          ),
-        ),
-        elevation: isSelected ? 4 : 1,
-        shadowColor: Colors.green.shade600.withOpacity(0.3),
       ),
     );
   }
