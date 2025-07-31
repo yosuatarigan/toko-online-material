@@ -288,8 +288,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   child: ListView(
                     children: [
                       _buildCartItems(cartService),
-                      _buildVoucherSection(),
-                      _buildShippingSection(),
+                      // _buildVoucherSection(),
+                      // _buildShippingSection(),
                       _buildOrderSummary(cartService),
                       const SizedBox(height: 100), // Space for bottom bar
                     ],
