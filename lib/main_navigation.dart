@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:toko_online_material/service/cart_service.dart';
 import 'beranda_page.dart';
 import 'cart_page.dart';
+import 'profile_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   const MainNavigationPage({super.key});
@@ -102,13 +103,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             description: 'Lihat status dan riwayat pembelian material Anda',
             color: Colors.orange.shade600,
           ),
-          _buildPlaceholderPage(
-            icon: Icons.person_outline,
-            title: 'Profile',
-            subtitle: 'Fitur profile akan segera hadir',
-            description: 'Kelola informasi akun dan pengaturan aplikasi',
-            color: Colors.purple.shade600,
-          ),
+          const ProfilePage(),
         ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
