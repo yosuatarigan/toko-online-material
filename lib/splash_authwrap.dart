@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:toko_online_material/main_navigation.dart';
 import 'package:toko_online_material/service/cart_service.dart';
 import 'login_page.dart';
-import 'home_page.dart';
 import 'admin_home_page.dart';
 
 class SplashAuthWrapper extends StatefulWidget {
@@ -85,7 +85,8 @@ class _SplashAuthWrapperState extends State<SplashAuthWrapper> {
           if (_userRole == 'admin') {
             return const AdminHomePage();
           } else {
-            return const HomePage();
+            // Ganti HomePage dengan MainNavigationPage
+            return const MainNavigationPage();
           }
         } else {
           // User not logged in, clear cart sync
