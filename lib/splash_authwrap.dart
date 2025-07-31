@@ -15,35 +15,24 @@ class SplashAuthWrapper extends StatefulWidget {
 }
 
 class _SplashAuthWrapperState extends State<SplashAuthWrapper> {
-  bool _isLoading = true;
-  String? _userRole;
+  bool _isInitialLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _checkAuthState();
+    _initializeApp();
   }
 
-  Future<void> _checkAuthState() async {
-    await Future.delayed(const Duration(seconds: 2)); // Splash delay
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await _getUserRole(user.uid);
-      
-      // Sync cart after login
-      if (mounted) {
-        final cartService = Provider.of<CartService>(context, listen: false);
-        await cartService.mergeLocalWithFirebase();
-      }
-    }
+  Future<void> _initializeApp() async {
+    // Splash delay
+    await Future.delayed(const Duration(seconds: 2));
     
     setState(() {
-      _isLoading = false;
+      _isInitialLoading = false;
     });
   }
 
-  Future<void> _getUserRole(String uid) async {
+  Future<String> _getUserRole(String uid) async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -51,20 +40,17 @@ class _SplashAuthWrapperState extends State<SplashAuthWrapper> {
           .get();
       
       if (doc.exists) {
-        setState(() {
-          _userRole = doc.data()?['role'] ?? 'user';
-        });
+        return doc.data()?['role'] ?? 'user';
       }
+      return 'user';
     } catch (e) {
-      setState(() {
-        _userRole = 'user'; // Default role
-      });
+      return 'user'; // Default role on error
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isInitialLoading) {
       return const SplashScreen();
     }
 
@@ -75,21 +61,32 @@ class _SplashAuthWrapperState extends State<SplashAuthWrapper> {
           return const SplashScreen();
         }
 
-        if (snapshot.hasData) {
-          // User is logged in, sync cart and check role
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            final cartService = Provider.of<CartService>(context, listen: false);
-            await cartService.mergeLocalWithFirebase();
-          });
+        if (snapshot.hasData && snapshot.data != null) {
+          // User is logged in - check role with FutureBuilder
+          return FutureBuilder<String>(
+            future: _getUserRole(snapshot.data!.uid),
+            builder: (context, roleSnapshot) {
+              if (roleSnapshot.connectionState == ConnectionState.waiting) {
+                return const SplashScreen();
+              }
 
-          if (_userRole == 'admin') {
-            return const AdminHomePage();
-          } else {
-            // Ganti HomePage dengan MainNavigationPage
-            return const MainNavigationPage();
-          }
+              // Sync cart after getting role
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                final cartService = Provider.of<CartService>(context, listen: false);
+                await cartService.mergeLocalWithFirebase();
+              });
+
+              final userRole = roleSnapshot.data ?? 'user';
+              
+              if (userRole == 'admin') {
+                return const AdminHomePage();
+              } else {
+                return const MainNavigationPage();
+              }
+            },
+          );
         } else {
-          // User not logged in, clear cart sync
+          // User not logged in, clear cart
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             final cartService = Provider.of<CartService>(context, listen: false);
             await cartService.onUserLogout();
