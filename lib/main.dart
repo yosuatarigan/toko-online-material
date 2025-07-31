@@ -11,7 +11,7 @@ void main() async {
   await Firebase.initializeApp();
   await CartService().initialize();
   
-  // Set system UI untuk tampilan modern
+  // Set system UI untuk tampilan modern dengan tema hijau
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -26,20 +26,20 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
-  runApp(const MaterialStoreApp());
+  runApp(const TokoBarokahApp());
 }
 
-class MaterialStoreApp extends StatelessWidget {
-  const MaterialStoreApp({super.key});
+class TokoBarokahApp extends StatelessWidget {
+  const TokoBarokahApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (context) => CartService(),
       child: MaterialApp(
-        title: 'MaterialStore',
+        title: 'Toko Barokah - Material Berkualitas',
         debugShowCheckedModeBanner: false,
-        theme: _buildAppTheme(),
+        theme: _buildBarokahTheme(),
         home: const SplashAuthWrapper(),
         builder: (context, child) {
           return MediaQuery(
@@ -53,10 +53,15 @@ class MaterialStoreApp extends StatelessWidget {
     );
   }
 
-  ThemeData _buildAppTheme() {
-    const primaryBlue = Color(0xFF1976D2);
-    const darkBlue = Color(0xFF1565C0);
-    const lightGrey = Color(0xFFF8FAFC);
+  ThemeData _buildBarokahTheme() {
+    // Palet warna hijau untuk Toko Barokah
+    const primaryGreen = Color(0xFF2E7D32); // Hijau utama
+    const darkGreen = Color(0xFF1B5E20);    // Hijau gelap
+    const mediumGreen = Color(0xFF388E3C);  // Hijau medium
+    const lightGreen = Color(0xFF4CAF50);   // Hijau terang
+    const accentGreen = Color(0xFF66BB6A);  // Hijau aksen
+    
+    const lightBackground = Color(0xFFF1F8E9); // Background hijau sangat muda
     const darkGrey = Color(0xFF2D3748);
     const mediumGrey = Color(0xFF4A5568);
     const lightTextGrey = Color(0xFF718096);
@@ -65,22 +70,25 @@ class MaterialStoreApp extends StatelessWidget {
       useMaterial3: true,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       
-      // Color Scheme
+      // Color Scheme dengan tema hijau barokah
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
+        seedColor: primaryGreen,
         brightness: Brightness.light,
-        primary: primaryBlue,
+        primary: primaryGreen,
         onPrimary: Colors.white,
-        secondary: darkBlue,
+        secondary: mediumGreen,
+        tertiary: accentGreen,
         surface: Colors.white,
         onSurface: darkGrey,
-        background: lightGrey,
+        background: lightBackground,
         onBackground: darkGrey,
+        surfaceVariant: const Color(0xFFE8F5E8),
+        onSurfaceVariant: mediumGrey,
       ),
       
-      scaffoldBackgroundColor: lightGrey,
+      scaffoldBackgroundColor: lightBackground,
       
-      // Typography - Font system default (lebih ringan)
+      // Typography - Tetap menggunakan font system yang clean
       textTheme: const TextTheme(
         displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: darkGrey),
         displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: darkGrey),
@@ -95,11 +103,11 @@ class MaterialStoreApp extends StatelessWidget {
         bodySmall: TextStyle(fontSize: 12, color: lightTextGrey),
       ),
       
-      // AppBar Theme
+      // AppBar Theme dengan gradien hijau
       appBarTheme: const AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 4,
-        backgroundColor: primaryBlue,
+        backgroundColor: primaryGreen,
         foregroundColor: Colors.white,
         titleTextStyle: TextStyle(
           fontSize: 20,
@@ -110,32 +118,45 @@ class MaterialStoreApp extends StatelessWidget {
         systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
       
-      // Card Theme
+      // Card Theme dengan shadow hijau subtle
       cardTheme: CardTheme(
-        elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.08),
+        elevation: 3,
+        shadowColor: primaryGreen.withOpacity(0.1),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         color: Colors.white,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        surfaceTintColor: const Color(0xFFE8F5E8),
       ),
       
-      // Button Themes
+      // Button Themes dengan warna hijau barokah
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryBlue,
+          backgroundColor: primaryGreen,
           foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: primaryBlue.withOpacity(0.3),
+          elevation: 2,
+          shadowColor: primaryGreen.withOpacity(0.3),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ).copyWith(
+          backgroundColor: MaterialStateProperty.resolveWith<Color>(
+            (Set<MaterialState> states) {
+              if (states.contains(MaterialState.pressed)) {
+                return darkGreen;
+              }
+              if (states.contains(MaterialState.hovered)) {
+                return mediumGreen;
+              }
+              return primaryGreen;
+            },
+          ),
         ),
       ),
       
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryBlue,
-          side: const BorderSide(color: primaryBlue),
+          foregroundColor: primaryGreen,
+          side: const BorderSide(color: primaryGreen),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -143,13 +164,13 @@ class MaterialStoreApp extends StatelessWidget {
       
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryBlue,
+          foregroundColor: primaryGreen,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       
-      // Input Theme
+      // Input Theme dengan aksen hijau
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -163,7 +184,7 @@ class MaterialStoreApp extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryBlue, width: 2),
+          borderSide: const BorderSide(color: primaryGreen, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -172,12 +193,14 @@ class MaterialStoreApp extends StatelessWidget {
         contentPadding: const EdgeInsets.all(16),
         hintStyle: const TextStyle(color: lightTextGrey),
         labelStyle: const TextStyle(color: mediumGrey),
+        prefixIconColor: primaryGreen,
+        suffixIconColor: primaryGreen,
       ),
       
       // Bottom Navigation Theme
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
-        selectedItemColor: primaryBlue,
+        selectedItemColor: primaryGreen,
         unselectedItemColor: lightTextGrey,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
@@ -209,11 +232,11 @@ class MaterialStoreApp extends StatelessWidget {
         modalElevation: 16,
       ),
       
-      // Snackbar Theme
+      // Snackbar Theme dengan warna hijau
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: darkGrey,
+        backgroundColor: primaryGreen,
         contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
-        actionTextColor: primaryBlue,
+        actionTextColor: lightGreen,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
         elevation: 8,
@@ -221,21 +244,23 @@ class MaterialStoreApp extends StatelessWidget {
       
       // Floating Action Button Theme
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryBlue,
+        backgroundColor: primaryGreen,
         foregroundColor: Colors.white,
         elevation: 6,
         shape: CircleBorder(),
       ),
       
-      // Chip Theme
+      // Chip Theme dengan warna hijau
       chipTheme: ChipThemeData(
-        backgroundColor: Colors.grey.shade100,
-        selectedColor: primaryBlue.withOpacity(0.1),
+        backgroundColor: const Color(0xFFE8F5E8),
+        selectedColor: primaryGreen.withOpacity(0.15),
         disabledColor: Colors.grey.shade300,
         labelStyle: const TextStyle(color: darkGrey),
-        secondaryLabelStyle: const TextStyle(color: primaryBlue),
+        secondaryLabelStyle: const TextStyle(color: primaryGreen),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        checkmarkColor: primaryGreen,
+        deleteIconColor: primaryGreen,
       ),
       
       // List Tile Theme
@@ -243,7 +268,7 @@ class MaterialStoreApp extends StatelessWidget {
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: darkGrey),
         subtitleTextStyle: TextStyle(fontSize: 14, color: lightTextGrey),
-        iconColor: mediumGrey,
+        iconColor: primaryGreen,
         tileColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
       ),
@@ -257,22 +282,68 @@ class MaterialStoreApp extends StatelessWidget {
       
       // Progress Indicator Theme
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: primaryBlue,
+        color: primaryGreen,
         linearTrackColor: Colors.transparent,
         circularTrackColor: Colors.transparent,
       ),
       
       // Icon Theme
-      iconTheme: const IconThemeData(color: mediumGrey, size: 24),
+      iconTheme: const IconThemeData(color: primaryGreen, size: 24),
       
       // Tab Bar Theme
       tabBarTheme: const TabBarTheme(
-        labelColor: primaryBlue,
+        labelColor: primaryGreen,
         unselectedLabelColor: lightTextGrey,
-        indicatorColor: primaryBlue,
+        indicatorColor: primaryGreen,
         indicatorSize: TabBarIndicatorSize.tab,
         labelStyle: TextStyle(fontWeight: FontWeight.w600),
         unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal),
+      ),
+      
+      // Switch Theme
+      switchTheme: SwitchThemeData(
+        thumbColor: MaterialStateProperty.resolveWith<Color>(
+          (Set<MaterialState> states) {
+            if (states.contains(MaterialState.selected)) {
+              return primaryGreen;
+            }
+            return Colors.grey.shade400;
+          },
+        ),
+        trackColor: MaterialStateProperty.resolveWith<Color>(
+          (Set<MaterialState> states) {
+            if (states.contains(MaterialState.selected)) {
+              return primaryGreen.withOpacity(0.5);
+            }
+            return Colors.grey.shade300;
+          },
+        ),
+      ),
+      
+      // Checkbox Theme
+      checkboxTheme: CheckboxThemeData(
+        fillColor: MaterialStateProperty.resolveWith<Color>(
+          (Set<MaterialState> states) {
+            if (states.contains(MaterialState.selected)) {
+              return primaryGreen;
+            }
+            return Colors.transparent;
+          },
+        ),
+        checkColor: MaterialStateProperty.all(Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      
+      // Radio Theme
+      radioTheme: RadioThemeData(
+        fillColor: MaterialStateProperty.resolveWith<Color>(
+          (Set<MaterialState> states) {
+            if (states.contains(MaterialState.selected)) {
+              return primaryGreen;
+            }
+            return Colors.grey.shade400;
+          },
+        ),
       ),
     );
   }

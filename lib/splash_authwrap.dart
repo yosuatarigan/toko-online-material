@@ -177,9 +177,9 @@ class _SplashScreenState extends State<SplashScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1976D2), // Deep Blue
-              Color(0xFF1565C0), // Darker Blue
-              Color(0xFF0D47A1), // Navy Blue
+              Color(0xFF2E7D32), // Green utama
+              Color(0xFF388E3C), // Green medium
+              Color(0xFF1B5E20), // Green gelap
             ],
             stops: [0.0, 0.6, 1.0],
           ),
@@ -196,47 +196,62 @@ class _SplashScreenState extends State<SplashScreen>
                     return Transform.scale(
                       scale: _logoScale.value,
                       child: Container(
-                        width: 140,
-                        height: 140,
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(35),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 30,
-                              offset: const Offset(0, 15),
-                              spreadRadius: 5,
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 35,
+                              offset: const Offset(0, 18),
+                              spreadRadius: 8,
                             ),
                             BoxShadow(
-                              color: Colors.white.withOpacity(0.1),
-                              blurRadius: 20,
-                              offset: const Offset(0, -10),
+                              color: Colors.white.withOpacity(0.2),
+                              blurRadius: 25,
+                              offset: const Offset(0, -12),
                             ),
                           ],
                         ),
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            // Background pattern
+                            // Background pattern dengan sentuhan Islamic
                             Container(
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(30),
+                                borderRadius: BorderRadius.circular(35),
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
                                     Colors.white,
-                                    Colors.grey.shade50,
+                                    Colors.green.shade50,
                                   ],
                                 ),
                               ),
                             ),
-                            // Icon
-                            const Icon(
-                              Icons.business,
-                              size: 70,
-                              color: Color(0xFF1976D2),
+                            // Icon dengan nuansa toko material
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.home_work,
+                                  size: 50,
+                                  color: Colors.green.shade700,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'TB',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -245,7 +260,7 @@ class _SplashScreenState extends State<SplashScreen>
                   },
                 ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 50),
 
                 // Title dengan animasi
                 SlideTransition(
@@ -255,31 +270,65 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       children: [
                         const Text(
-                          'MaterialStore',
+                          'Toko Barokah',
                           style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
                             color: Colors.white,
-                            letterSpacing: 1.2,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          height: 4,
+                          width: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Bahan Material Berkualitas',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white.withOpacity(0.95),
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.8,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          height: 3,
-                          width: 60,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Toko Online Bahan Material',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white.withOpacity(0.9),
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.5,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                size: 16,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Laren, Lamongan',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -287,7 +336,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
-                const SizedBox(height: 60),
+                const SizedBox(height: 70),
 
                 // Loading indicator
                 FadeTransition(
@@ -295,29 +344,33 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(50),
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(60),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
                         ),
                         child: const SizedBox(
-                          width: 30,
-                          height: 30,
+                          width: 35,
+                          height: 35,
                           child: CircularProgressIndicator(
-                            strokeWidth: 3,
+                            strokeWidth: 3.5,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               Colors.white,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                       Text(
-                        'Memuat aplikasi...',
+                        'Menyiapkan aplikasi...',
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.8),
-                          fontWeight: FontWeight.w300,
+                          fontSize: 15,
+                          color: Colors.white.withOpacity(0.85),
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],

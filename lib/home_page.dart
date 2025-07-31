@@ -56,6 +56,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
+  void _showStoreInfo() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildStoreInfoBottomSheet(),
+    );
+  }
+
   Stream<QuerySnapshot> get _productsStream {
     Query query = FirebaseFirestore.instance
         .collection('products')
@@ -78,7 +87,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF1F8E9),
       extendBodyBehindAppBar: true,
       appBar: _buildModernAppBar(),
       body: Column(
@@ -88,6 +97,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               headerSliverBuilder: (context, innerBoxIsScrolled) {
                 return [
                   _buildHeaderSection(),
+                  _buildStoreInfoSection(),
                   _buildCategoriesSection(),
                   _buildProductsHeaderSection(),
                 ];
@@ -111,20 +121,59 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF1976D2),
-              Color(0xFF1565C0),
-              Color(0xFF0D47A1),
+              Color(0xFF2E7D32),
+              Color(0xFF388E3C),
+              Color(0xFF1B5E20),
             ],
           ),
         ),
       ),
-      title: const Text(
-        'MaterialStore',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 22,
-        ),
+      title: Row(
+        children: [
+          Container(
+            width: 35,
+            height: 35,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.home_work,
+              color: Colors.green.shade700,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Toko Barokah',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                'Material Berkualitas',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       actions: [
         _buildNotificationButton(),
@@ -147,7 +196,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Fitur notifikasi akan segera hadir'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: Colors.green.shade700,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -175,7 +224,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Fitur profile akan segera hadir'),
-                backgroundColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: Colors.green.shade700,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -215,9 +264,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF1976D2),
-                Color(0xFF1565C0),
-                Color(0xFF0D47A1),
+                Color(0xFF2E7D32),
+                Color(0xFF388E3C),
+                Color(0xFF1B5E20),
               ],
             ),
             borderRadius: BorderRadius.only(
@@ -249,18 +298,18 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Halo, ${user?.displayName ?? 'User'}! 👋',
+          'Assalamualaikum, ${user?.displayName ?? 'Sobat'}! 🏠',
           style: const TextStyle(
-            fontSize: 28,
+            fontSize: 26,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Temukan bahan material terbaik untuk proyek Anda',
+          'Temukan bahan material berkualitas untuk proyek impian Anda',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             color: Colors.white.withOpacity(0.9),
             height: 1.4,
           ),
@@ -296,7 +345,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    'Cari produk, kategori...',
+                    'Cari semen, pasir, batu bata...',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -306,15 +355,226 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.tune, color: Colors.grey[600], size: 20),
+                  child: Icon(Icons.tune, color: Colors.green.shade700, size: 20),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStoreInfoSection() {
+    return SliverToBoxAdapter(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.white, Colors.green.shade50],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: _showStoreInfo,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.info_outline,
+                    color: Colors.green.shade700,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Info Toko Barokah',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Lihat alamat, kontak & jam operasional',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.green.shade600,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoreInfoBottomSheet() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.home_work,
+                    color: Colors.green.shade700,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Toko Barokah',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                      Text(
+                        'Bahan Material Berkualitas',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Info sections
+            _buildInfoItem(
+              Icons.location_on,
+              'Alamat',
+              'Jalan tanggul, Sawah, Centini\nKec. Laren, Kabupaten Lamongan\nJawa Timur 62262',
+            ),
+            _buildInfoItem(
+              Icons.email,
+              'Email',
+              'toko.barokah.material@gmail.com',
+            ),
+            _buildInfoItem(
+              Icons.access_time,
+              'Jam Operasional',
+              'Senin - Sabtu: 07:00 - 17:00\nMinggu: 08:00 - 15:00',
+            ),
+            
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.green.shade700, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D3748),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  content,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -328,7 +588,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              'Kategori',
+              'Kategori Produk',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -399,16 +659,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           });
         },
         backgroundColor: Colors.white,
-        selectedColor: const Color(0xFF1976D2),
+        selectedColor: Colors.green.shade600,
         checkmarkColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(25),
           side: BorderSide(
-            color: isSelected ? const Color(0xFF1976D2) : Colors.grey.shade300,
+            color: isSelected ? Colors.green.shade600 : Colors.grey.shade300,
           ),
         ),
         elevation: isSelected ? 4 : 1,
-        shadowColor: const Color(0xFF1976D2).withOpacity(0.3),
+        shadowColor: Colors.green.shade600.withOpacity(0.3),
       ),
     );
   }
@@ -456,7 +716,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     final isSelected = _isGridView == isGrid;
     return Container(
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF1976D2) : Colors.transparent,
+        color: isSelected ? Colors.green.shade600 : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
       ),
       child: IconButton(
@@ -541,6 +801,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               onPressed: () => setState(() {}),
               icon: const Icon(Icons.refresh),
               label: const Text('Coba Lagi'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+              ),
             ),
           ],
         ),
@@ -549,13 +812,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text('Memuat produk...'),
+          CircularProgressIndicator(color: Colors.green.shade600),
+          const SizedBox(height: 16),
+          const Text('Memuat produk...'),
         ],
       ),
     );
@@ -575,7 +838,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
-                Icons.inventory_2_outlined,
+                Icons.home_repair_service_outlined,
                 size: 64,
                 color: Colors.grey[400],
               ),
@@ -592,7 +855,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             const SizedBox(height: 12),
             Text(
               _selectedCategoryId.isEmpty
-                  ? 'Produk akan muncul setelah admin menambahkannya'
+                  ? 'Produk material akan segera tersedia'
                   : 'Tidak ada produk dalam kategori ini',
               style: TextStyle(
                 fontSize: 16,
@@ -608,6 +871,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     _selectedCategoryId = '';
                   });
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600,
+                ),
                 child: const Text('Lihat Semua Produk'),
               ),
             ],
