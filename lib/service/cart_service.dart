@@ -45,12 +45,12 @@ class CartService extends ChangeNotifier {
     }
   }
 
-  // Add item to cart with variant support
+  // Enhanced add item method with new variant system support
   Future<bool> addItem(
     Product product, {
     int quantity = 1,
-    String? variantId,
-    String? variantName,
+    String? variantId, // Now this is the combination ID
+    String? variantName, // Display name for the combination
     double variantPriceAdjustment = 0,
     String? variantSku,
     Map<String, dynamic>? variantAttributes,
@@ -61,19 +61,42 @@ class CartService extends ChangeNotifier {
       _clearError();
 
       // Validate product
-      if (!product.isActive || (product.stock <= 0 && !product.hasVariants)) {
+      if (!product.isActive || (product.totalStock <= 0)) {
         _setError('Produk tidak tersedia');
         return false;
       }
 
-      // For products with variants, validate variant
+      // For products with variants, validate variant combination
       if (product.hasVariants && variantId == null) {
         _setError('Silakan pilih varian produk');
         return false;
       }
 
-      // Determine available stock
-      final availableStock = variantStock ?? product.stock;
+      // Get variant combination details if product has variants
+      ProductVariantCombination? variantCombination;
+      if (product.hasVariants && variantId != null) {
+        final combinations = product.getVariantCombinations();
+        try {
+          variantCombination = combinations.firstWhere((c) => c.id == variantId);
+        } catch (e) {
+          _setError('Varian tidak ditemukan');
+          return false;
+        }
+
+        if (!variantCombination.isActive || variantCombination.stock <= 0) {
+          _setError('Varian tidak tersedia');
+          return false;
+        }
+      }
+
+      // Determine available stock and other details
+      final availableStock = variantCombination?.stock ?? product.stock;
+      final finalVariantName = variantCombination != null 
+          ? _getCombinationDisplayName(product, variantCombination)
+          : variantName;
+      final finalVariantSku = variantCombination?.sku ?? variantSku;
+      final finalPriceAdjustment = variantCombination?.priceAdjustment ?? variantPriceAdjustment;
+
       if (availableStock <= 0) {
         _setError('Stok tidak tersedia');
         return false;
@@ -109,11 +132,11 @@ class CartService extends ChangeNotifier {
           product,
           quantity: quantity,
           variantId: variantId,
-          variantName: variantName,
-          variantPriceAdjustment: variantPriceAdjustment,
-          variantSku: variantSku,
-          variantAttributes: variantAttributes,
-          variantStock: variantStock,
+          variantName: finalVariantName,
+          variantPriceAdjustment: finalPriceAdjustment,
+          variantSku: finalVariantSku,
+          variantAttributes: variantCombination?.attributes,
+          variantStock: availableStock,
         );
         _items.add(cartItem);
       }
@@ -129,6 +152,24 @@ class CartService extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  // Helper method to get combination display name
+  String _getCombinationDisplayName(Product product, ProductVariantCombination combination) {
+    final attributes = product.getVariantAttributes();
+    List<String> parts = [];
+    
+    for (String attributeId in combination.attributes.keys) {
+      final attribute = attributes.firstWhere(
+        (attr) => attr.id == attributeId,
+        orElse: () => VariantAttribute(id: '', name: '', options: []),
+      );
+      if (attribute.id.isNotEmpty) {
+        final optionValue = combination.attributes[attributeId]!;
+        parts.add(optionValue);
+      }
+    }
+    return parts.join(' - ');
   }
 
   // Generate unique key for item (product + variant)
@@ -246,7 +287,7 @@ class CartService extends ChangeNotifier {
     return _items.where((item) => item.productId == productId).toList();
   }
 
-  // Validate cart items (check stock availability)
+  // Enhanced validate cart items with new variant system
   Future<List<String>> validateCart() async {
     final issues = <String>[];
     
@@ -270,30 +311,33 @@ class CartService extends ChangeNotifier {
           continue;
         }
 
-        // Check variant-specific stock if applicable
-        if (item.hasVariant && product.hasVariants && product.variants != null) {
-          final variant = product.variants!.firstWhere(
-            (v) => v['id'] == item.variantId,
-            orElse: () => <String, dynamic>{},
-          );
+        // Check variant-specific stock if applicable (new system)
+        if (item.hasVariant && product.hasVariants) {
+          final combinations = product.getVariantCombinations();
           
-          if (variant == null) {
+          try {
+            final combination = combinations.firstWhere((c) => c.id == item.variantId);
+            
+            if (!combination.isActive) {
+              issues.add('Varian ${item.variantName} dari ${item.productName} tidak lagi tersedia');
+              continue;
+            }
+
+            if (combination.stock <= 0) {
+              issues.add('${item.displayName} stok habis');
+            } else if (item.quantity > combination.stock) {
+              issues.add('${item.displayName} stok hanya tersisa ${combination.stock} ${product.unit}');
+            }
+          } catch (e) {
             issues.add('Varian ${item.variantName} dari ${item.productName} tidak lagi tersedia');
             continue;
-          }
-
-          final variantStock = variant['stock'] ?? 0;
-          if (variantStock <= 0) {
-            issues.add('${item.displayName} stok habis');
-          } else if (item.quantity > variantStock) {
-            issues.add('${item.displayName} stok hanya tersisa $variantStock ${product.unit}');
           }
         } else {
           // Check regular product stock
           if (product.isOutOfStock) {
             issues.add('${item.displayName} stok habis');
-          } else if (item.quantity > product.stock) {
-            issues.add('${item.displayName} stok hanya tersisa ${product.stock} ${product.unit}');
+          } else if (item.quantity > product.totalStock) {
+            issues.add('${item.displayName} stok hanya tersisa ${product.totalStock} ${product.unit}');
           }
         }
       } catch (e) {

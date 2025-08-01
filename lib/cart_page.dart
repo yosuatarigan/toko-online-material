@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:toko_online_material/models/cartitem.dart';
+import 'package:toko_online_material/models/product.dart';
 import 'package:toko_online_material/service/cart_service.dart';
 
 class CartPage extends StatefulWidget {
@@ -17,7 +18,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   Set<String> _selectedItems = {};
   String _selectedVoucher = '';
   String _selectedShipping = 'regular';
-  
+
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -26,6 +27,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     super.initState();
     _initializeAnimations();
     _initializeSelectedItems();
+    _validateCartItems();
   }
 
   void _initializeAnimations() {
@@ -33,11 +35,12 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
-    
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+
     _fadeController.forward();
   }
 
@@ -48,6 +51,78 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         _selectedItems = cartService.items.map((item) => item.id).toSet();
       });
     });
+  }
+
+  // Validate cart items in background
+  Future<void> _validateCartItems() async {
+    final cartService = Provider.of<CartService>(context, listen: false);
+    if (cartService.isEmpty) return;
+
+    setState(() {
+      _isValidating = true;
+    });
+
+    try {
+      final issues = await cartService.validateCart();
+      if (issues.isNotEmpty && mounted) {
+        _showValidationDialog(issues);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Gagal memvalidasi keranjang: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isValidating = false;
+        });
+      }
+    }
+  }
+
+  void _showValidationDialog(List<String> issues) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange[700], size: 24),
+            const SizedBox(width: 8),
+            const Text('Perhatian', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Beberapa item di keranjang Anda memiliki masalah:'),
+            const SizedBox(height: 12),
+            ...issues.map((issue) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• ', style: TextStyle(color: Colors.red[600])),
+                  Expanded(
+                    child: Text(
+                      issue,
+                      style: TextStyle(color: Colors.red[600], fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            )).toList(),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -74,7 +149,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       } else {
         _selectedItems.add(itemId);
       }
-      
+
       final cartService = Provider.of<CartService>(context, listen: false);
       _selectAll = _selectedItems.length == cartService.items.length;
     });
@@ -117,8 +192,40 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       return;
     }
 
-    final selectedTotal = _calculateSelectedTotal(cartService);
-    _showCheckoutDialog(selectedTotal);
+    // Validate selected items before checkout
+    setState(() {
+      _isValidating = true;
+    });
+
+    try {
+      final issues = await cartService.validateCart();
+      final selectedItemIssues = issues.where((issue) {
+        // Filter issues for selected items only
+        return _selectedItems.any((itemId) {
+          final item = cartService.items.firstWhere((i) => i.id == itemId, 
+              orElse: () => CartItem.fromProduct(Product(
+                id: '', name: '', description: '', price: 0, stock: 0,
+                categoryId: '', categoryName: '', unit: '', imageUrls: [],
+                isActive: false, sku: '', createdAt: DateTime.now(), updatedAt: DateTime.now()
+              )));
+          return issue.contains(item.displayName);
+        });
+      }).toList();
+
+      if (selectedItemIssues.isNotEmpty) {
+        _showValidationDialog(selectedItemIssues);
+        return;
+      }
+
+      final selectedTotal = _calculateSelectedTotal(cartService);
+      _showCheckoutDialog(selectedTotal);
+    } catch (e) {
+      _showErrorSnackBar('Gagal memvalidasi keranjang: $e');
+    } finally {
+      setState(() {
+        _isValidating = false;
+      });
+    }
   }
 
   void _showCheckoutDialog(double total) {
@@ -167,10 +274,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                     Expanded(
                       child: Text(
                         'Pesanan akan diproses oleh Toko Barokah',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.blue.shade700,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
                       ),
                     ),
                   ],
@@ -189,9 +293,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               Navigator.pop(context);
               _processCheckout();
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
             child: const Text('Checkout', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -284,6 +386,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               children: [
                 _buildStoreHeader(),
                 _buildSelectAllBar(cartService),
+                if (_isValidating) _buildValidationBar(),
                 Expanded(
                   child: ListView(
                     children: [
@@ -303,6 +406,30 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           if (cartService.isEmpty) return const SizedBox.shrink();
           return _buildBottomCheckoutBar(cartService);
         },
+      ),
+    );
+  }
+
+  Widget _buildValidationBar() {
+    return Container(
+      color: Colors.orange[50],
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange[700]!),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Memvalidasi ketersediaan produk...',
+            style: TextStyle(fontSize: 12, color: Colors.orange[700]),
+          ),
+        ],
       ),
     );
   }
@@ -420,9 +547,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               color: const Color(0xFF2E7D32).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.home_work,
-              color: const Color(0xFF2E7D32),
+            child: const Icon(
+              Icons.store,
+              color: Color(0xFF2E7D32),
               size: 20,
             ),
           ),
@@ -441,10 +568,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 ),
                 Text(
                   'Material Berkualitas • Laren, Lamongan',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
@@ -526,7 +650,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         itemBuilder: (context, index) {
           final item = cartService.items[index];
           final isSelected = _selectedItems.contains(item.id);
-          
+
           return Container(
             color: Colors.white,
             margin: const EdgeInsets.only(bottom: 1),
@@ -616,27 +740,19 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   double _getShippingCostValue() {
     switch (_selectedShipping) {
-      case 'regular':
-        return 15000;
-      case 'express':
-        return 25000;
-      case 'same_day':
-        return 35000;
-      default:
-        return 15000;
+      case 'regular': return 15000;
+      case 'express': return 25000;
+      case 'same_day': return 35000;
+      default: return 15000;
     }
   }
 
   String _getShippingPrice() {
     switch (_selectedShipping) {
-      case 'regular':
-        return 'Rp 15.000';
-      case 'express':
-        return 'Rp 25.000';
-      case 'same_day':
-        return 'Rp 35.000';
-      default:
-        return 'Rp 15.000';
+      case 'regular': return 'Rp 15.000';
+      case 'express': return 'Rp 25.000';
+      case 'same_day': return 'Rp 35.000';
+      default: return 'Rp 15.000';
     }
   }
 
@@ -667,10 +783,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 children: [
                   Text(
                     'Total (${_getSelectedItemsCount()} item)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   Text(
                     _formatCurrency(total),
@@ -685,26 +798,30 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _selectedItems.isEmpty 
+                  onPressed: _selectedItems.isEmpty || _isValidating 
                       ? null 
                       : () => _checkout(cartService),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E7D32),
                     disabledBackgroundColor: Colors.grey.shade300,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: Text(
-                    'Checkout (${_getSelectedItemsCount()})',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _selectedItems.isEmpty ? Colors.grey.shade600 : Colors.white,
-                    ),
-                  ),
+                  child: _isValidating 
+                      ? const SizedBox(
+                          width: 20, 
+                          height: 20, 
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          'Checkout (${_getSelectedItemsCount()})',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: _selectedItems.isEmpty ? Colors.grey.shade600 : Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -731,18 +848,13 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200),
-                  ),
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                 ),
                 child: Row(
                   children: [
                     const Text(
                       'Pilih Voucher',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     const Spacer(),
                     IconButton(
@@ -756,24 +868,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                 child: ListView(
                   controller: scrollController,
                   children: [
-                    _buildVoucherItem(
-                      'NEWUSER10',
-                      'Diskon Rp 10.000',
-                      'Min. belanja Rp 50.000',
-                      Colors.orange,
-                    ),
-                    _buildVoucherItem(
-                      'FREEONGKIR',
-                      'Gratis Ongkir',
-                      'Min. belanja Rp 100.000',
-                      Colors.blue,
-                    ),
-                    _buildVoucherItem(
-                      'MATERIAL15',
-                      'Diskon 15%',
-                      'Max. diskon Rp 25.000',
-                      Colors.green,
-                    ),
+                    _buildVoucherItem('NEWUSER10', 'Diskon Rp 10.000', 'Min. belanja Rp 50.000', Colors.orange),
+                    _buildVoucherItem('FREEONGKIR', 'Gratis Ongkir', 'Min. belanja Rp 100.000', Colors.blue),
+                    _buildVoucherItem('MATERIAL15', 'Diskon 15%', 'Max. diskon Rp 25.000', Colors.green),
                   ],
                 ),
               ),
@@ -786,7 +883,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   Widget _buildVoucherItem(String code, String title, String description, Color color) {
     final isSelected = _selectedVoucher == code;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -804,31 +901,15 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            Icons.local_offer,
-            color: color,
-            size: 20,
-          ),
+          child: Icon(Icons.local_offer, color: color, size: 20),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         subtitle: Text(
           '$code • $description',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
-        trailing: isSelected
-            ? const Icon(
-                Icons.check_circle,
-                color: Color(0xFF2E7D32),
-              )
+        trailing: isSelected 
+            ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32)) 
             : null,
         onTap: () {
           setState(() {
@@ -852,24 +933,13 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade200),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
             child: Row(
               children: [
-                const Text(
-                  'Pilih Pengiriman',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                const Text('Pilih Pengiriman', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
               ],
             ),
           ),
@@ -884,7 +954,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   Widget _buildShippingOption(String value, String title, String estimate, String price) {
     final isSelected = _selectedShipping == value;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
@@ -902,44 +972,16 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             color: Colors.blue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(
-            Icons.local_shipping,
-            color: Colors.blue,
-            size: 20,
-          ),
+          child: const Icon(Icons.local_shipping, color: Colors.blue, size: 20),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          'Estimasi: $estimate',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        subtitle: Text('Estimasi: $estimate', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              price,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2D3748),
-              ),
-            ),
-            if (isSelected)
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF2E7D32),
-                size: 16,
-              ),
+            Text(price, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2D3748))),
+            if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 16),
           ],
         ),
         onTap: () {
@@ -983,7 +1025,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   }
 }
 
-// Cart Item Tile dengan variant support
+// Enhanced Cart Item Tile with new variant system support
 class _CartItemTile extends StatelessWidget {
   final CartItem item;
   final bool isSelected;
@@ -1046,16 +1088,14 @@ class _CartItemTile extends StatelessWidget {
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
                   color: Colors.grey.shade100,
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                  child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 ),
                 errorWidget: (context, url, error) => Container(
                   color: Colors.grey.shade100,
-                  child: Icon(Icons.construction, color: Colors.grey.shade400, size: 30),
+                  child: Icon(Icons.image, color: Colors.grey.shade400, size: 30),
                 ),
               )
-            : Icon(Icons.construction, color: Colors.grey.shade400, size: 30),
+            : Icon(Icons.image, color: Colors.grey.shade400, size: 30),
       ),
     );
   }
@@ -1074,27 +1114,42 @@ class _CartItemTile extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        
-        // Variant info
+
+        // Enhanced variant info display
         if (item.hasVariant) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFF2E7D32).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              '${item.variantName}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF2E7D32),
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.tune,
+                  size: 12,
+                  color: const Color(0xFF2E7D32),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    item.variantName!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF2E7D32),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-        
+
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1104,15 +1159,12 @@ class _CartItemTile extends StatelessWidget {
           ),
           child: Text(
             item.categoryName,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
           ),
         ),
         const SizedBox(height: 8),
-        
-        // Price with variant adjustment indicator
+
+        // Enhanced price display with variant adjustment indicator
         Row(
           children: [
             Text(
@@ -1124,15 +1176,33 @@ class _CartItemTile extends StatelessWidget {
               ),
             ),
             if (item.hasVariant && item.variantPriceAdjustment != 0) ...[
-              const SizedBox(width: 4),
-              Icon(
-                item.variantPriceAdjustment > 0 
-                    ? Icons.trending_up 
-                    : Icons.trending_down,
-                size: 12,
-                color: item.variantPriceAdjustment > 0 
-                    ? Colors.orange 
-                    : Colors.green,
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: item.variantPriceAdjustment > 0 
+                      ? Colors.orange.withOpacity(0.1)
+                      : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.variantPriceAdjustment > 0 ? Icons.add : Icons.remove,
+                      size: 10,
+                      color: item.variantPriceAdjustment > 0 ? Colors.orange : Colors.green,
+                    ),
+                    Text(
+                      'Rp ${item.variantPriceAdjustment.abs().toInt()}',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: item.variantPriceAdjustment > 0 ? Colors.orange : Colors.green,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
@@ -1154,9 +1224,7 @@ class _CartItemTile extends StatelessWidget {
             children: [
               _buildQuantityButton(
                 Icons.remove,
-                item.quantity > 1
-                    ? () => onQuantityChanged(item.quantity - 1)
-                    : null,
+                item.quantity > 1 ? () => onQuantityChanged(item.quantity - 1) : null,
               ),
               Container(
                 width: 40,
@@ -1164,17 +1232,12 @@ class _CartItemTile extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   '${item.quantity}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ),
               _buildQuantityButton(
                 Icons.add,
-                item.quantity < item.maxStock
-                    ? () => onQuantityChanged(item.quantity + 1)
-                    : null,
+                item.quantity < item.maxStock ? () => onQuantityChanged(item.quantity + 1) : null,
               ),
             ],
           ),
@@ -1198,10 +1261,7 @@ class _CartItemTile extends StatelessWidget {
                 if (item.hasVariant && item.variantSku != null) ...[
                   Text(
                     'SKU: ${item.variantSku}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                   ),
                   const SizedBox(width: 8),
                 ],

@@ -10,11 +10,12 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
+class _ProfilePageState extends State<ProfilePage>
+    with TickerProviderStateMixin {
   final user = FirebaseAuth.instance.currentUser;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-  
+
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
 
@@ -30,22 +31,24 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
-    
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+
     _fadeController.forward();
   }
 
   Future<void> _loadUserData() async {
     if (user != null) {
       try {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user!.uid)
-            .get();
-        
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user!.uid)
+                .get();
+
         if (doc.exists) {
           setState(() {
             _userData = doc.data();
@@ -69,41 +72,50 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   Future<void> _logout() async {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.logout, color: Colors.red, size: 24),
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(width: 12),
-            const Text('Keluar Akun', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: const Text('Apakah Anda yakin ingin keluar dari akun?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.logout, color: Colors.red, size: 24),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Keluar Akun',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: const Text('Apakah Anda yakin ingin keluar dari akun?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await FirebaseAuth.instance.signOut();
+                  if (mounted) {
+                    _showSuccessSnackBar('Berhasil keluar dari akun');
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Keluar',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await FirebaseAuth.instance.signOut();
-              if (mounted) {
-                _showSuccessSnackBar('Berhasil keluar dari akun');
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Keluar', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -177,11 +189,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF2E7D32),
-                Color(0xFF388E3C),
-                Color(0xFF1B5E20),
-              ],
+              colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF1B5E20)],
             ),
           ),
           child: SafeArea(
@@ -289,17 +297,34 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF2E7D32),
-                    width: 3,
-                  ),
+                  border: Border.all(color: const Color(0xFF2E7D32), width: 3),
                 ),
                 child: ClipOval(
-                  child: _userData?['profileImage']?.isNotEmpty == true
-                      ? CachedNetworkImage(
-                          imageUrl: _userData!['profileImage'],
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
+                  child:
+                      _userData?['profileImage']?.isNotEmpty == true
+                          ? CachedNetworkImage(
+                            imageUrl: _userData!['profileImage'],
+                            fit: BoxFit.cover,
+                            placeholder:
+                                (context, url) => Container(
+                                  color: Colors.green.shade50,
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Colors.green.shade400,
+                                  ),
+                                ),
+                            errorWidget:
+                                (context, url, error) => Container(
+                                  color: Colors.green.shade50,
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 40,
+                                    color: Colors.green.shade400,
+                                  ),
+                                ),
+                          )
+                          : Container(
                             color: Colors.green.shade50,
                             child: Icon(
                               Icons.person,
@@ -307,23 +332,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                               color: Colors.green.shade400,
                             ),
                           ),
-                          errorWidget: (context, url, error) => Container(
-                            color: Colors.green.shade50,
-                            child: Icon(
-                              Icons.person,
-                              size: 40,
-                              color: Colors.green.shade400,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: Colors.green.shade50,
-                          child: Icon(
-                            Icons.person,
-                            size: 40,
-                            color: Colors.green.shade400,
-                          ),
-                        ),
                 ),
               ),
               Positioned(
@@ -339,8 +347,13 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   ),
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                    onPressed: () => _showComingSoonSnackBar('Edit Foto Profile'),
+                    icon: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    onPressed:
+                        () => _showComingSoonSnackBar('Edit Foto Profile'),
                   ),
                 ),
               ),
@@ -358,19 +371,13 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           const SizedBox(height: 4),
           Text(
             _userData?['email'] ?? user?.email ?? '',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           if (_userData?['phone']?.isNotEmpty == true) ...[
             const SizedBox(height: 4),
             Text(
               _userData!['phone'],
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ],
           const SizedBox(height: 16),
@@ -481,10 +488,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
               ],
             ),
@@ -642,10 +646,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.green.shade200,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.green.shade200, width: 1),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -654,18 +655,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.home_work,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
+                Image.asset('assets/logo.png', height: 40, width: 40),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -681,10 +671,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                       ),
                       Text(
                         'Material Berkualitas Sejak 2020',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -702,10 +689,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               'Senin - Sabtu: 07:00 - 17:00\nMinggu: 08:00 - 15:00',
             ),
             const SizedBox(height: 12),
-            _buildStoreInfoItem(
-              Icons.email,
-              'toko.barokah.material@gmail.com',
-            ),
+            _buildStoreInfoItem(Icons.email, 'toko.barokah.material@gmail.com'),
           ],
         ),
       ),
@@ -716,11 +700,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: Colors.green.shade600,
-        ),
+        Icon(icon, size: 18, color: Colors.green.shade600),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -765,11 +745,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.logout,
-                        color: Colors.red.shade600,
-                        size: 20,
-                      ),
+                      Icon(Icons.logout, color: Colors.red.shade600, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'Keluar Akun',
@@ -785,24 +761,18 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // App Version
           Text(
             'Versi Aplikasi 1.0.0',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
           ),
           const SizedBox(height: 8),
           Text(
             '© 2025 Toko Barokah - All Rights Reserved',
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[400],
-            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey[400]),
             textAlign: TextAlign.center,
           ),
         ],
@@ -825,11 +795,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: Colors.green.shade600,
-                size: 22,
-              ),
+              Icon(icon, color: Colors.green.shade600, size: 22),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -845,10 +811,7 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                     ),
                     Text(
                       subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -867,54 +830,57 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   }
 
   Widget _buildMenuDivider() {
-    return Divider(
-      height: 1,
-      color: Colors.grey.shade200,
-      indent: 58,
-    );
+    return Divider(height: 1, color: Colors.grey.shade200, indent: 58);
   }
 
   void _showStoreContactDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.home_work,
-                color: Colors.green.shade700,
-                size: 24,
-              ),
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(width: 12),
-            const Text('Kontak Toko Barokah', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildContactItem(Icons.location_on, 'Alamat', 'Jl. Tanggul, Sawah, Centini\nKec. Laren, Lamongan, Jawa Timur'),
-            const SizedBox(height: 16),
-            _buildContactItem(Icons.access_time, 'Jam Buka', 'Senin-Sabtu: 07:00-17:00\nMinggu: 08:00-15:00'),
-            const SizedBox(height: 16),
-            _buildContactItem(Icons.email, 'Email', 'toko.barokah.material@gmail.com'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
+            title: Row(
+              children: [
+                Image.asset('assets/logo.png', height: 40, width: 40),
+                const SizedBox(width: 12),
+                const Text(
+                  'Kontak Toko Barokah',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildContactItem(
+                  Icons.location_on,
+                  'Alamat',
+                  'Jl. Tanggul, Sawah, Centini\nKec. Laren, Lamongan, Jawa Timur',
+                ),
+                const SizedBox(height: 16),
+                _buildContactItem(
+                  Icons.access_time,
+                  'Jam Buka',
+                  'Senin-Sabtu: 07:00-17:00\nMinggu: 08:00-15:00',
+                ),
+                const SizedBox(height: 16),
+                _buildContactItem(
+                  Icons.email,
+                  'Email',
+                  'toko.barokah.material@gmail.com',
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Tutup'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 

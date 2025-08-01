@@ -154,7 +154,7 @@ class _ProductCardState extends State<ProductCard>
                   : _buildImagePlaceholder(),
             ),
             
-            // Stock Status Badge - Menggunakan stockStatusColor dari model
+            // Stock Status Badge - Menggunakan properties dari model
             Positioned(
               top: 12,
               left: 12,
@@ -215,38 +215,45 @@ class _ProductCardState extends State<ProductCard>
                 ),
               ),
             
-            // Variants Indicator - Jika produk memiliki varian
-            if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty)
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.tune,
-                        size: 10,
-                        color: Colors.white,
+            // Variants Indicator - Menggunakan sistem varian baru
+            if (widget.product.hasVariants) ...[
+              () {
+                final combinations = widget.product.getVariantCombinations();
+                if (combinations.isNotEmpty) {
+                  return Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${widget.product.variants!.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.tune,
+                            size: 10,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${combinations.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }(),
+            ],
             
             // Inactive Overlay
             if (!widget.product.isActive)
@@ -359,18 +366,15 @@ class _ProductCardState extends State<ProductCard>
             
             const SizedBox(height: 8),
             
-            // Price Section - Menggunakan priceRange jika ada varian
+            // Price Section - Menggunakan priceRange dari model
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Price - Support untuk range harga varian
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty
-                        ? widget.product.priceRange
-                        : widget.product.formattedPrice,
+                    widget.product.priceRange, // Menggunakan priceRange dari model
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -396,7 +400,7 @@ class _ProductCardState extends State<ProductCard>
             // Stock Info and Add to Cart Button
             Row(
               children: [
-                // Stock Info - Menggunakan totalStock dari model
+                // Stock Info - Menggunakan totalStock dan properties dari model
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,14 +413,18 @@ class _ProductCardState extends State<ProductCard>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (widget.product.hasVariants && widget.product.variants != null)
-                        Text(
-                          '${widget.product.variants!.length} varian',
-                          style: TextStyle(
-                            fontSize: 8,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                      if (widget.product.hasVariants) ...[
+                        () {
+                          final combinations = widget.product.getVariantCombinations();
+                          return Text(
+                            '${combinations.length} varian',
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: Colors.grey[600],
+                            ),
+                          );
+                        }(),
+                      ],
                     ],
                   ),
                 ),
@@ -697,7 +705,7 @@ class _ProductListCardState extends State<ProductListCard>
                     size: 36,
                   ),
             
-            // Stock badge for list view - Menggunakan stockStatusColor
+            // Stock badge for list view - Menggunakan properties dari model
             Positioned(
               top: 4,
               left: 4,
@@ -718,27 +726,34 @@ class _ProductListCardState extends State<ProductListCard>
               ),
             ),
             
-            // Variants indicator untuk list view
-            if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty)
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${widget.product.variants!.length}V',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
+            // Variants indicator untuk list view - Menggunakan sistem varian baru
+            if (widget.product.hasVariants) ...[
+              () {
+                final combinations = widget.product.getVariantCombinations();
+                if (combinations.isNotEmpty) {
+                  return Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${combinations.length}V',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }(),
+            ],
           ],
         ),
       ),
@@ -797,9 +812,7 @@ class _ProductListCardState extends State<ProductListCard>
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty
-                          ? widget.product.priceRange
-                          : widget.product.formattedPrice,
+                      widget.product.priceRange, // Menggunakan priceRange dari model
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -822,7 +835,7 @@ class _ProductListCardState extends State<ProductListCard>
             
             const SizedBox(width: 8),
             
-            // Stock Info Column
+            // Stock Info Column - Menggunakan properties dari model
             Flexible(
               flex: 2,
               child: Column(

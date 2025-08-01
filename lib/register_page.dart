@@ -231,42 +231,7 @@ class _RegisterPageState extends State<RegisterPage> with TickerProviderStateMix
                       Center(
                         child: Column(
                           children: [
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(25),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                    spreadRadius: 5,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.home_work,
-                                    size: 35,
-                                    color: Colors.green.shade700,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'TB',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade700,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                  Image.asset('assets/logo.png', height: 210),
                             const SizedBox(height: 32),
                             const Text(
                               'Selamat Datang!',

@@ -14,12 +14,13 @@ class BerandaPage extends StatefulWidget {
   State<BerandaPage> createState() => _BerandaPageState();
 }
 
-class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin {
+class _BerandaPageState extends State<BerandaPage>
+    with TickerProviderStateMixin {
   final user = FirebaseAuth.instance.currentUser;
   final _searchController = TextEditingController();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  
+
   String _selectedCategoryId = '';
   bool _isGridView = true;
   bool _isLoading = false;
@@ -106,7 +107,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .limit(20);
-    
+
     if (_selectedCategoryId.isNotEmpty) {
       query = FirebaseFirestore.instance
           .collection('products')
@@ -115,7 +116,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
           .orderBy('createdAt', descending: true)
           .limit(20);
     }
-    
+
     return query.snapshots();
   }
 
@@ -149,36 +150,13 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF2E7D32),
-              Color(0xFF388E3C),
-              Color(0xFF1B5E20),
-            ],
+            colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF1B5E20)],
           ),
         ),
       ),
       title: Row(
         children: [
-          Container(
-            width: 35,
-            height: 35,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(
-              Icons.home_work,
-              color: Colors.green.shade700,
-              size: 20,
-            ),
-          ),
+          Image.asset('assets/logo.png', height: 40, width: 40),
           const SizedBox(width: 12),
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,10 +182,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
           ),
         ],
       ),
-      actions: [
-        _buildNotificationButton(),
-        _buildProfileMenu(),
-      ],
+      actions: [_buildNotificationButton(), _buildProfileMenu()],
     );
   }
 
@@ -226,7 +201,9 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
               content: const Text('Fitur notifikasi akan segera hadir'),
               backgroundColor: Colors.green.shade700,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         },
@@ -254,29 +231,45 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                 content: const Text('Fitur profile akan segera hadir'),
                 backgroundColor: Colors.green.shade700,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             );
           }
         },
-        itemBuilder: (context) => [
-          _buildMenuItem(Icons.person_outline, 'Profile', 'profile'),
-          _buildMenuItem(Icons.settings_outlined, 'Pengaturan', 'settings'),
-          const PopupMenuDivider(),
-          _buildMenuItem(Icons.logout, 'Keluar', 'logout', isDestructive: true),
-        ],
+        itemBuilder:
+            (context) => [
+              _buildMenuItem(Icons.person_outline, 'Profile', 'profile'),
+              _buildMenuItem(Icons.settings_outlined, 'Pengaturan', 'settings'),
+              const PopupMenuDivider(),
+              _buildMenuItem(
+                Icons.logout,
+                'Keluar',
+                'logout',
+                isDestructive: true,
+              ),
+            ],
       ),
     );
   }
 
-  PopupMenuItem<String> _buildMenuItem(IconData icon, String text, String value, {bool isDestructive = false}) {
+  PopupMenuItem<String> _buildMenuItem(
+    IconData icon,
+    String text,
+    String value, {
+    bool isDestructive = false,
+  }) {
     return PopupMenuItem(
       value: value,
       child: Row(
         children: [
           Icon(icon, color: isDestructive ? Colors.red : null, size: 20),
           const SizedBox(width: 12),
-          Text(text, style: TextStyle(color: isDestructive ? Colors.red : null)),
+          Text(
+            text,
+            style: TextStyle(color: isDestructive ? Colors.red : null),
+          ),
         ],
       ),
     );
@@ -291,11 +284,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF2E7D32),
-                Color(0xFF388E3C),
-                Color(0xFF1B5E20),
-              ],
+              colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF1B5E20)],
             ),
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(32),
@@ -374,10 +363,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                 Expanded(
                   child: Text(
                     'Cari semen, pasir, batu bata...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                 ),
                 Container(
@@ -386,7 +372,11 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                     color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.tune, color: Colors.green.shade700, size: 20),
+                  child: Icon(
+                    Icons.tune,
+                    color: Colors.green.shade700,
+                    size: 20,
+                  ),
                 ),
               ],
             ),
@@ -450,10 +440,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                       const SizedBox(height: 4),
                       Text(
                         'Lihat alamat, kontak & jam operasional',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -495,22 +482,11 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Header
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.home_work,
-                    color: Colors.green.shade700,
-                    size: 28,
-                  ),
-                ),
+                Image.asset('assets/logo.png', height: 40, width: 40),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -526,19 +502,16 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                       ),
                       Text(
                         'Bahan Material Berkualitas',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Info sections
             _buildInfoItem(
               Icons.location_on,
@@ -555,7 +528,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
               'Jam Operasional',
               'Senin - Sabtu: 07:00 - 17:00\nMinggu: 08:00 - 15:00',
             ),
-            
+
             const SizedBox(height: 20),
           ],
         ),
@@ -634,10 +607,11 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
 
   Widget _buildCategoriesGrid() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('categories')
-          .orderBy('name')
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('categories')
+              .orderBy('name')
+              .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return Container(
@@ -647,9 +621,10 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
           );
         }
 
-        final categories = snapshot.data!.docs
-            .map((doc) => Category.fromFirestore(doc))
-            .toList();
+        final categories =
+            snapshot.data!.docs
+                .map((doc) => Category.fromFirestore(doc))
+                .toList();
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -705,32 +680,32 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        gradient: isSelected
-            ? LinearGradient(
-                colors: [color, color.withOpacity(0.8)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : LinearGradient(
-                colors: [Colors.white, Colors.grey.shade50],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+        gradient:
+            isSelected
+                ? LinearGradient(
+                  colors: [color, color.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+                : LinearGradient(
+                  colors: [Colors.white, Colors.grey.shade50],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isSelected 
-                ? color.withOpacity(0.3) 
-                : Colors.black.withOpacity(0.05),
+            color:
+                isSelected
+                    ? color.withOpacity(0.3)
+                    : Colors.black.withOpacity(0.05),
             blurRadius: isSelected ? 12 : 8,
             offset: const Offset(0, 4),
             spreadRadius: isSelected ? 2 : 0,
           ),
         ],
         border: Border.all(
-          color: isSelected 
-              ? color.withOpacity(0.3) 
-              : Colors.grey.shade200,
+          color: isSelected ? color.withOpacity(0.3) : Colors.grey.shade200,
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -751,9 +726,10 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: isSelected 
-                        ? Colors.white.withOpacity(0.2)
-                        : color.withOpacity(0.1),
+                    color:
+                        isSelected
+                            ? Colors.white.withOpacity(0.2)
+                            : color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -769,7 +745,8 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : const Color(0xFF2D3748),
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF2D3748),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -860,9 +837,10 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
           return _buildEmptyState();
         }
 
-        final products = snapshot.data!.docs
-            .map((doc) => Product.fromFirestore(doc))
-            .toList();
+        final products =
+            snapshot.data!.docs
+                .map((doc) => Product.fromFirestore(doc))
+                .toList();
 
         return _buildProductsList(products);
       },
@@ -900,10 +878,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
             const SizedBox(height: 12),
             Text(
               'Tidak dapat memuat produk saat ini',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -955,7 +930,9 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
             ),
             const SizedBox(height: 24),
             Text(
-              _selectedCategoryId.isEmpty ? 'Belum Ada Produk' : 'Tidak Ada Produk',
+              _selectedCategoryId.isEmpty
+                  ? 'Belum Ada Produk'
+                  : 'Tidak Ada Produk',
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -967,10 +944,7 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
               _selectedCategoryId.isEmpty
                   ? 'Produk material akan segera tersedia'
                   : 'Tidak ada produk dalam kategori ini',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             if (_selectedCategoryId.isNotEmpty) ...[
@@ -996,7 +970,12 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
   Widget _buildProductsList(List<Product> products) {
     if (_isGridView) {
       return GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120), // Extra bottom padding for nav bar
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          120,
+        ), // Extra bottom padding for nav bar
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 0.75,
@@ -1010,7 +989,12 @@ class _BerandaPageState extends State<BerandaPage> with TickerProviderStateMixin
       );
     } else {
       return ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120), // Extra bottom padding for nav bar
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          120,
+        ), // Extra bottom padding for nav bar
         itemCount: products.length,
         itemBuilder: (context, index) {
           return ProductListCard(product: products[index]);

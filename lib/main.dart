@@ -37,7 +37,7 @@ class TokoBarokahApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => CartService(),
       child: MaterialApp(
-        title: 'Toko Barokah - Material Berkualitas',
+        title: 'Toko Barokah',
         debugShowCheckedModeBanner: false,
         theme: _buildBarokahTheme(),
         home: const SplashAuthWrapper(),

@@ -489,28 +489,24 @@ class _ProductCard extends StatelessWidget {
   });
 
   Color _getStockColor() {
-    if (product.isOutOfStock) return Colors.red;
-    if (product.isLowStock) return Colors.orange;
-    return Colors.green;
+    return product.stockStatusColor;
   }
 
   int _getTotalVariants() {
-    if (product.variants == null || product.variants!.isEmpty) return 0;
-    return product.variants!.length;
+    if (!product.hasVariants) return 0;
+    final combinations = product.getVariantCombinations();
+    return combinations.length;
   }
 
   int _getTotalStock() {
-    if (product.variants == null || product.variants!.isEmpty) {
-      return product.stock;
-    }
-    return product.variants!.fold(0, (sum, variant) => sum + variant['stock'] as int);
+    return product.totalStock;
   }
 
   @override
   Widget build(BuildContext context) {
     final totalVariants = _getTotalVariants();
     final totalStock = _getTotalStock();
-    final hasVariants = totalVariants > 0;
+    final hasVariants = product.hasVariants && totalVariants > 0;
 
     return Card(
       elevation: 2,
@@ -703,7 +699,7 @@ class _ProductCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          product.formattedPrice,
+                          product.priceRange,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -828,7 +824,7 @@ class _ProductCard extends StatelessWidget {
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children: product.variants!.take(3).map((variant) {
+                        children: product.getVariantCombinations().take(3).map((combination) {
                           return Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -840,7 +836,7 @@ class _ProductCard extends StatelessWidget {
                               border: Border.all(color: Colors.grey[300]!),
                             ),
                             child: Text(
-                              '${variant['name']} (${variant['stock']})',
+                              '${combination.displayName} (${combination.stock})',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF718096),

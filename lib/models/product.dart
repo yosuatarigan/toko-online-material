@@ -1,6 +1,85 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+// Variant Attribute Model
+class VariantAttribute {
+  String id;
+  String name;
+  List<String> options;
+
+  VariantAttribute({
+    required this.id,
+    required this.name,
+    required this.options,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+    'options': options,
+  };
+
+  factory VariantAttribute.fromMap(Map<String, dynamic> map) => VariantAttribute(
+    id: map['id'] ?? '',
+    name: map['name'] ?? '',
+    options: List<String>.from(map['options'] ?? []),
+  );
+}
+
+// Product Variant Combination Model
+class ProductVariantCombination {
+  String id;
+  Map<String, String> attributes; // attributeId: optionValue
+  String sku;
+  double priceAdjustment;
+  int stock;
+  bool isActive;
+  String? imageUrl;
+
+  ProductVariantCombination({
+    required this.id,
+    required this.attributes,
+    required this.sku,
+    this.priceAdjustment = 0,
+    required this.stock,
+    this.isActive = true,
+    this.imageUrl,
+  });
+
+  String get displayName => attributes.values.join(' - ');
+
+  double calculateFinalPrice(double basePrice) => basePrice + priceAdjustment;
+
+  String getFormattedPrice(double basePrice) {
+    final finalPrice = calculateFinalPrice(basePrice);
+    return 'Rp ${finalPrice.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    )}';
+  }
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'attributes': attributes,
+    'sku': sku,
+    'priceAdjustment': priceAdjustment,
+    'stock': stock,
+    'isActive': isActive,
+    'imageUrl': imageUrl,
+  };
+
+  factory ProductVariantCombination.fromMap(Map<String, dynamic> map) => ProductVariantCombination(
+    id: map['id'] ?? '',
+    attributes: Map<String, String>.from(map['attributes'] ?? {}),
+    sku: map['sku'] ?? '',
+    priceAdjustment: (map['priceAdjustment'] ?? 0).toDouble(),
+    stock: map['stock'] ?? 0,
+    isActive: map['isActive'] ?? true,
+    imageUrl: map['imageUrl'],
+  );
+}
+
+// Enhanced Product Model
 class Product {
   final String id;
   final String name;
@@ -15,7 +94,8 @@ class Product {
   final String sku;
   final double? weight;
   final bool hasVariants;
-  final List<Map<String, dynamic>>? variants;
+  final List<Map<String, dynamic>>? variantAttributes;
+  final List<Map<String, dynamic>>? variantCombinations;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,61 +113,41 @@ class Product {
     required this.sku,
     this.weight,
     this.hasVariants = false,
-    this.variants,
+    this.variantAttributes,
+    this.variantCombinations,
     required this.createdAt,
     required this.updatedAt,
   });
 
   // Computed properties
   bool get isOutOfStock {
-    if (hasVariants && variants != null) {
-      return variants!.every((variant) => (variant['stock'] as int) == 0);
+    if (hasVariants) {
+      final combinations = getVariantCombinations();
+      return combinations.every((combination) => combination.stock == 0);
     }
     return stock == 0;
   }
 
-  bool get isLowStock {
-    if (hasVariants && variants != null) {
-      final totalStock = variants!.fold<int>(0, (sum, variant) => sum + (variant['stock'] as int));
-      return totalStock > 0 && totalStock <= 10;
-    }
-    return stock > 0 && stock <= 10;
-  }
+  bool get isLowStock => totalStock > 0 && totalStock <= 10;
 
   int get totalStock {
-    if (hasVariants && variants != null) {
-      return variants!.fold<int>(0, (sum, variant) => sum + (variant['stock'] as int));
+    if (hasVariants) {
+      final combinations = getVariantCombinations();
+      return combinations.fold<int>(0, (sum, combination) => sum + combination.stock);
     }
     return stock;
   }
 
   String get stockStatus {
-    if (isOutOfStock) {
-      return 'Habis';
-    } else if (isLowStock) {
-      return 'Menipis';
-    } else {
-      return 'Tersedia';
-    }
+    if (isOutOfStock) return 'Habis';
+    if (isLowStock) return 'Menipis';
+    return 'Tersedia';
   }
 
   Color get stockStatusColor {
-    if (isOutOfStock) {
-      return const Color(0xFFDC2626); // Red
-    } else if (isLowStock) {
-      return const Color(0xFFF59E0B); // Orange
-    } else {
-      return const Color(0xFF059669); // Green
-    }
-  }
-
-  String get stockInfo {
-    if (hasVariants && variants != null) {
-      final availableVariants = variants!.where((v) => (v['stock'] as int) > 0).length;
-      final totalVariants = variants!.length;
-      return '$availableVariants dari $totalVariants varian tersedia';
-    }
-    return '$totalStock $unit tersedia';
+    if (isOutOfStock) return const Color(0xFFDC2626);
+    if (isLowStock) return const Color(0xFFF59E0B);
+    return const Color(0xFF059669);
   }
 
   String get formattedPrice {
@@ -98,15 +158,14 @@ class Product {
   }
 
   String get priceRange {
-    if (!hasVariants || variants == null || variants!.isEmpty) {
-      return formattedPrice;
-    }
+    if (!hasVariants) return formattedPrice;
 
     double minPrice = price;
     double maxPrice = price;
 
-    for (var variant in variants!) {
-      final variantPrice = price + (variant['priceAdjustment'] as double);
+    final combinations = getVariantCombinations();
+    for (var combination in combinations) {
+      final variantPrice = price + combination.priceAdjustment;
       if (variantPrice < minPrice) minPrice = variantPrice;
       if (variantPrice > maxPrice) maxPrice = variantPrice;
     }
@@ -118,22 +177,40 @@ class Product {
       )}';
     }
 
-    return 'Rp ${minPrice.toStringAsFixed(0).replaceAllMapped(
+    final minFormatted = minPrice.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]}.',
-    )} - ${maxPrice.toStringAsFixed(0).replaceAllMapped(
+    );
+    final maxFormatted = maxPrice.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]}.',
-    )}';
+    );
+
+    return 'Rp $minFormatted - $maxFormatted';
   }
 
-  List<ProductVariant> get productVariants {
-    if (!hasVariants || variants == null) return [];
-    
-    return variants!.map((variantMap) => ProductVariant.fromMap(variantMap)).toList();
+  // Helper methods
+  List<VariantAttribute> getVariantAttributes() {
+    if (variantAttributes == null) return [];
+    return variantAttributes!
+        .map((attrMap) => VariantAttribute.fromMap(attrMap))
+        .toList();
   }
 
-  // Factory method to create Product from Firestore document
+  List<ProductVariantCombination> getVariantCombinations() {
+    if (variantCombinations == null) return [];
+    return variantCombinations!
+        .map((combMap) => ProductVariantCombination.fromMap(combMap))
+        .toList();
+  }
+
+  List<ProductVariantCombination> getAvailableVariantCombinations() {
+    return getVariantCombinations()
+        .where((combination) => combination.stock > 0 && combination.isActive)
+        .toList();
+  }
+
+  // Factory method from Firestore
   factory Product.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
@@ -151,15 +228,18 @@ class Product {
       sku: data['sku'] ?? '',
       weight: data['weight']?.toDouble(),
       hasVariants: data['hasVariants'] ?? false,
-      variants: data['variants'] != null 
-          ? List<Map<String, dynamic>>.from(data['variants'])
+      variantAttributes: data['variantAttributes'] != null
+          ? List<Map<String, dynamic>>.from(data['variantAttributes'])
+          : null,
+      variantCombinations: data['variantCombinations'] != null
+          ? List<Map<String, dynamic>>.from(data['variantCombinations'])
           : null,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
-  // Convert Product to Map for Firestore
+  // Convert to Firestore
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
@@ -174,13 +254,13 @@ class Product {
       'sku': sku,
       'weight': weight,
       'hasVariants': hasVariants,
-      'variants': variants,
+      'variantAttributes': variantAttributes,
+      'variantCombinations': variantCombinations,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
   }
 
-  // Create a copy of Product with updated fields
   Product copyWith({
     String? id,
     String? name,
@@ -195,7 +275,8 @@ class Product {
     String? sku,
     double? weight,
     bool? hasVariants,
-    List<Map<String, dynamic>>? variants,
+    List<Map<String, dynamic>>? variantAttributes,
+    List<Map<String, dynamic>>? variantCombinations,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -213,222 +294,10 @@ class Product {
       sku: sku ?? this.sku,
       weight: weight ?? this.weight,
       hasVariants: hasVariants ?? this.hasVariants,
-      variants: variants ?? this.variants,
+      variantAttributes: variantAttributes ?? this.variantAttributes,
+      variantCombinations: variantCombinations ?? this.variantCombinations,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
-}
-
-class ProductVariant {
-  final String id;
-  final String name;
-  final double priceAdjustment; // +/- dari harga dasar
-  final int stock;
-  final String? sku;
-  final Map<String, dynamic>? attributes; // warna, ukuran, dll
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-
-  ProductVariant({
-    required this.id,
-    required this.name,
-    this.priceAdjustment = 0,
-    required this.stock,
-    this.sku,
-    this.attributes,
-    this.createdAt,
-    this.updatedAt,
-  });
-
-  // Computed properties
-  bool get isOutOfStock => stock == 0;
-  bool get isLowStock => stock > 0 && stock <= 5;
-
-  String get formattedPriceAdjustment {
-    if (priceAdjustment == 0) return '';
-    
-    final absAdjustment = priceAdjustment.abs();
-    final formattedAmount = absAdjustment.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
-    
-    return priceAdjustment > 0 ? '+Rp $formattedAmount' : '-Rp $formattedAmount';
-  }
-
-  double calculateFinalPrice(double basePrice) {
-    return basePrice + priceAdjustment;
-  }
-
-  String getFormattedFinalPrice(double basePrice) {
-    final finalPrice = calculateFinalPrice(basePrice);
-    return 'Rp ${finalPrice.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
-  }
-
-  // Factory method to create ProductVariant from Map
-  factory ProductVariant.fromMap(Map<String, dynamic> map) {
-    return ProductVariant(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      priceAdjustment: (map['priceAdjustment'] ?? 0).toDouble(),
-      stock: map['stock'] ?? 0,
-      sku: map['sku'],
-      attributes: map['attributes'],
-      createdAt: map['createdAt'] != null 
-          ? (map['createdAt'] as Timestamp).toDate() 
-          : null,
-      updatedAt: map['updatedAt'] != null 
-          ? (map['updatedAt'] as Timestamp).toDate() 
-          : null,
-    );
-  }
-
-  // Convert ProductVariant to Map
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'priceAdjustment': priceAdjustment,
-      'stock': stock,
-      'sku': sku,
-      'attributes': attributes,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-    };
-  }
-
-  // Create a copy of ProductVariant with updated fields
-  ProductVariant copyWith({
-    String? id,
-    String? name,
-    double? priceAdjustment,
-    int? stock,
-    String? sku,
-    Map<String, dynamic>? attributes,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return ProductVariant(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      priceAdjustment: priceAdjustment ?? this.priceAdjustment,
-      stock: stock ?? this.stock,
-      sku: sku ?? this.sku,
-      attributes: attributes ?? this.attributes,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'ProductVariant(id: $id, name: $name, priceAdjustment: $priceAdjustment, stock: $stock)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    
-    return other is ProductVariant &&
-        other.id == id &&
-        other.name == name &&
-        other.priceAdjustment == priceAdjustment &&
-        other.stock == stock &&
-        other.sku == sku;
-  }
-
-  @override
-  int get hashCode {
-    return id.hashCode ^
-        name.hashCode ^
-        priceAdjustment.hashCode ^
-        stock.hashCode ^
-        sku.hashCode;
-  }
-}
-
-// Helper class untuk mengelola stok produk dengan varian
-class ProductStockManager {
-  static int getTotalStock(Product product) {
-    if (product.hasVariants && product.variants != null) {
-      return product.variants!.fold<int>(0, (sum, variant) => sum + (variant['stock'] as int));
-    }
-    return product.stock;
-  }
-
-  static bool isOutOfStock(Product product) {
-    if (product.hasVariants && product.variants != null) {
-      return product.variants!.every((variant) => (variant['stock'] as int) == 0);
-    }
-    return product.stock == 0;
-  }
-
-  static bool isLowStock(Product product, {int threshold = 10}) {
-    final totalStock = getTotalStock(product);
-    return totalStock > 0 && totalStock <= threshold;
-  }
-
-  static List<ProductVariant> getAvailableVariants(Product product) {
-    if (!product.hasVariants || product.variants == null) return [];
-    
-    return product.variants!
-        .map((variantMap) => ProductVariant.fromMap(variantMap))
-        .where((variant) => variant.stock > 0)
-        .toList();
-  }
-
-  static List<ProductVariant> getLowStockVariants(Product product, {int threshold = 5}) {
-    if (!product.hasVariants || product.variants == null) return [];
-    
-    return product.variants!
-        .map((variantMap) => ProductVariant.fromMap(variantMap))
-        .where((variant) => variant.stock > 0 && variant.stock <= threshold)
-        .toList();
-  }
-
-  static ProductVariant? getCheapestVariant(Product product) {
-    if (!product.hasVariants || product.variants == null || product.variants!.isEmpty) {
-      return null;
-    }
-
-    var cheapestVariant = ProductVariant.fromMap(product.variants!.first);
-    double cheapestPrice = product.price + cheapestVariant.priceAdjustment;
-
-    for (var variantMap in product.variants!) {
-      final variant = ProductVariant.fromMap(variantMap);
-      final variantPrice = product.price + variant.priceAdjustment;
-      
-      if (variantPrice < cheapestPrice) {
-        cheapestPrice = variantPrice;
-        cheapestVariant = variant;
-      }
-    }
-
-    return cheapestVariant;
-  }
-
-  static ProductVariant? getMostExpensiveVariant(Product product) {
-    if (!product.hasVariants || product.variants == null || product.variants!.isEmpty) {
-      return null;
-    }
-
-    var expensiveVariant = ProductVariant.fromMap(product.variants!.first);
-    double expensivePrice = product.price + expensiveVariant.priceAdjustment;
-
-    for (var variantMap in product.variants!) {
-      final variant = ProductVariant.fromMap(variantMap);
-      final variantPrice = product.price + variant.priceAdjustment;
-      
-      if (variantPrice > expensivePrice) {
-        expensivePrice = variantPrice;
-        expensiveVariant = variant;
-      }
-    }
-
-    return expensiveVariant;
   }
 }

@@ -31,7 +31,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         vsync: this,
       ),
     );
-    
+
     // Animate first tab
     _animationControllers[0].forward();
   }
@@ -50,18 +50,18 @@ class _MainNavigationPageState extends State<MainNavigationPage>
       setState(() {
         _currentIndex = index;
       });
-      
+
       _pageController.animateToPage(
         index,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
-      
+
       // Reset all animations
       for (var controller in _animationControllers) {
         controller.reset();
       }
-      
+
       // Animate selected tab
       _animationControllers[index].forward();
     }
@@ -77,12 +77,12 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           setState(() {
             _currentIndex = index;
           });
-          
+
           // Reset all animations
           for (var controller in _animationControllers) {
             controller.reset();
           }
-          
+
           // Animate selected tab
           _animationControllers[index].forward();
         },
@@ -93,7 +93,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             icon: Icons.chat_bubble_outline,
             title: 'Chat',
             subtitle: 'Fitur chat akan segera hadir',
-            description: 'Hubungi admin Toko Barokah untuk konsultasi produk material',
+            description:
+                'Hubungi admin Toko Barokah untuk konsultasi produk material',
             color: Colors.blue.shade600,
           ),
           _buildPlaceholderPage(
@@ -126,36 +127,13 @@ class _MainNavigationPageState extends State<MainNavigationPage>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF2E7D32),
-                Color(0xFF388E3C),
-                Color(0xFF1B5E20),
-              ],
+              colors: [Color(0xFF2E7D32), Color(0xFF388E3C), Color(0xFF1B5E20)],
             ),
           ),
         ),
         title: Row(
           children: [
-            Container(
-              width: 35,
-              height: 35,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.home_work,
-                color: Colors.green.shade700,
-                size: 20,
-              ),
-            ),
+            Image.asset('assets/logo.png', height: 40, width: 40),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,11 +188,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                         color: color.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Icon(
-                        icon,
-                        size: 64,
-                        color: color,
-                      ),
+                      child: Icon(icon, size: 64, color: color),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -262,11 +236,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.schedule,
-                            size: 16,
-                            color: color,
-                          ),
+                          Icon(Icons.schedule, size: 16, color: color),
                           const SizedBox(width: 8),
                           Text(
                             'Segera Hadir',
@@ -293,9 +263,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -363,7 +331,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
     bool showBadge = false,
   }) {
     final isSelected = _currentIndex == index;
-    
+
     return GestureDetector(
       onTap: () => _onTabTapped(index),
       child: AnimatedBuilder(
@@ -372,9 +340,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected 
-                  ? const Color(0xFF2E7D32).withOpacity(0.1)
-                  : Colors.transparent,
+              color:
+                  isSelected
+                      ? const Color(0xFF2E7D32).withOpacity(0.1)
+                      : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -388,9 +357,10 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                       child: Icon(
                         isSelected ? activeIcon : icon,
                         key: ValueKey(isSelected),
-                        color: isSelected 
-                            ? const Color(0xFF2E7D32) 
-                            : Colors.grey[600],
+                        color:
+                            isSelected
+                                ? const Color(0xFF2E7D32)
+                                : Colors.grey[600],
                         size: 24,
                       ),
                     ),
@@ -416,8 +386,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                                   minHeight: 18,
                                 ),
                                 child: Text(
-                                  cartService.totalQuantity > 99 
-                                      ? '99+' 
+                                  cartService.totalQuantity > 99
+                                      ? '99+'
                                       : cartService.totalQuantity.toString(),
                                   style: const TextStyle(
                                     fontSize: 10,
@@ -440,9 +410,8 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected 
-                        ? const Color(0xFF2E7D32) 
-                        : Colors.grey[600],
+                    color:
+                        isSelected ? const Color(0xFF2E7D32) : Colors.grey[600],
                   ),
                   child: Text(label),
                 ),

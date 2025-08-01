@@ -231,26 +231,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ),
                             ),
                             // Icon dengan nuansa toko material
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.home_work,
-                                  size: 50,
-                                  color: Colors.green.shade700,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'TB',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green.shade700,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              ],
-                            ),
+                           Image.asset('assets/logo.png')
                           ],
                         ),
                       ),

@@ -32,8 +32,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   List<Product> _relatedProducts = [];
   bool _isLoading = true;
   
-  // Variant state
-  ProductVariant? _selectedVariant;
+  // Enhanced Variant state
+  ProductVariantCombination? _selectedVariantCombination;
+  Map<String, String> _selectedAttributes = {}; // attributeId: optionValue
   double _currentPrice = 0;
   int _availableStock = 0;
 
@@ -68,15 +69,22 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   void _initializeProductData() {
     // Initialize price and stock based on variants
-    if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty) {
-      // Select first available variant or first variant
-      final availableVariants = widget.product.productVariants.where((v) => v.stock > 0).toList();
-      if (availableVariants.isNotEmpty) {
-        _selectedVariant = availableVariants.first;
+    if (widget.product.hasVariants) {
+      final combinations = widget.product.getVariantCombinations();
+      if (combinations.isNotEmpty) {
+        // Select first available combination or first combination
+        final availableCombinations = combinations.where((c) => c.stock > 0 && c.isActive).toList();
+        if (availableCombinations.isNotEmpty) {
+          _selectedVariantCombination = availableCombinations.first;
+        } else {
+          _selectedVariantCombination = combinations.first;
+        }
+        _selectedAttributes = Map.from(_selectedVariantCombination!.attributes);
+        _updatePriceAndStock();
       } else {
-        _selectedVariant = widget.product.productVariants.first;
+        _currentPrice = widget.product.price;
+        _availableStock = widget.product.stock;
       }
-      _updatePriceAndStock();
     } else {
       _currentPrice = widget.product.price;
       _availableStock = widget.product.stock;
@@ -84,18 +92,78 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   void _updatePriceAndStock() {
-    if (_selectedVariant != null) {
-      _currentPrice = widget.product.price + _selectedVariant!.priceAdjustment;
-      _availableStock = _selectedVariant!.stock;
+    if (_selectedVariantCombination != null) {
+      _currentPrice = widget.product.price + _selectedVariantCombination!.priceAdjustment;
+      _availableStock = _selectedVariantCombination!.stock;
     } else {
       _currentPrice = widget.product.price;
-      _availableStock = widget.product.stock;
+      _availableStock = widget.product.totalStock;
     }
     
     // Reset quantity if it exceeds available stock
     if (_quantity > _availableStock) {
       _quantity = _availableStock > 0 ? 1 : 0;
     }
+  }
+
+  void _selectVariantCombination(ProductVariantCombination combination) {
+    setState(() {
+      _selectedVariantCombination = combination;
+      _selectedAttributes = Map.from(combination.attributes);
+      _updatePriceAndStock();
+    });
+  }
+
+  void _updateAttributeSelection(String attributeId, String optionValue) {
+    setState(() {
+      _selectedAttributes[attributeId] = optionValue;
+      
+      // Find matching combination
+      final combinations = widget.product.getVariantCombinations();
+      final matchingCombination = combinations.firstWhere(
+        (combination) => _mapEquals(combination.attributes, _selectedAttributes),
+        orElse: () => ProductVariantCombination(
+          id: '',
+          attributes: {},
+          sku: '',
+          stock: 0,
+        ),
+      );
+      
+      if (matchingCombination.id.isNotEmpty) {
+        _selectedVariantCombination = matchingCombination;
+        _updatePriceAndStock();
+      } else {
+        _selectedVariantCombination = null;
+        _currentPrice = widget.product.price;
+        _availableStock = 0;
+      }
+    });
+  }
+
+  bool _mapEquals(Map<String, String> map1, Map<String, String> map2) {
+    if (map1.length != map2.length) return false;
+    for (var key in map1.keys) {
+      if (map1[key] != map2[key]) return false;
+    }
+    return true;
+  }
+
+  String _getCombinationDisplayName(ProductVariantCombination combination) {
+    final attributes = widget.product.getVariantAttributes();
+    List<String> parts = [];
+    
+    for (String attributeId in combination.attributes.keys) {
+      final attribute = attributes.firstWhere(
+        (attr) => attr.id == attributeId,
+        orElse: () => VariantAttribute(id: '', name: '', options: []),
+      );
+      if (attribute.id.isNotEmpty) {
+        final optionValue = combination.attributes[attributeId]!;
+        parts.add(optionValue);
+      }
+    }
+    return parts.join(' - ');
   }
 
   void _startAnimations() {
@@ -145,24 +213,22 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   void _addToCart() async {
     final cartService = Provider.of<CartService>(context, listen: false);
     
-    // Create a cart item with variant info if applicable
-    Map<String, dynamic>? variantInfo;
-    if (_selectedVariant != null) {
-      variantInfo = {
-        'variantId': _selectedVariant!.id,
-        'variantName': _selectedVariant!.name,
-        'price': _currentPrice,
-      };
+    // Create variant info if applicable
+    String? variantId;
+    if (_selectedVariantCombination != null) {
+      variantId = _selectedVariantCombination!.id;
     }
     
     final success = await cartService.addItem(
       widget.product, 
       quantity: _quantity,
-      variantId: _selectedVariant?.id,
+      variantId: variantId,
     );
 
     if (success && mounted) {
-      final variantText = _selectedVariant != null ? ' (${_selectedVariant!.name})' : '';
+      final variantText = _selectedVariantCombination != null 
+          ? ' (${_getCombinationDisplayName(_selectedVariantCombination!)})' 
+          : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -210,19 +276,15 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   void _buyNow() async {
     final cartService = Provider.of<CartService>(context, listen: false);
     
-    Map<String, dynamic>? variantInfo;
-    if (_selectedVariant != null) {
-      variantInfo = {
-        'variantId': _selectedVariant!.id,
-        'variantName': _selectedVariant!.name,
-        'price': _currentPrice,
-      };
+    String? variantId;
+    if (_selectedVariantCombination != null) {
+      variantId = _selectedVariantCombination!.id;
     }
     
     final success = await cartService.addItem(
       widget.product, 
       quantity: _quantity,
-      variantId: _selectedVariant?.id,
+      variantId: variantId,
     );
 
     if (success && mounted) {
@@ -273,6 +335,12 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     return widget.product.isOutOfStock;
   }
 
+  bool get _canAddToCart {
+    return widget.product.isActive && 
+           !_isOutOfStock && 
+           (!widget.product.hasVariants || _selectedVariantCombination != null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -292,7 +360,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildProductInfo(),
-                  if (widget.product.hasVariants && widget.product.variants != null && widget.product.variants!.isNotEmpty)
+                  if (widget.product.hasVariants)
                     _buildVariantSelector(),
                   if (widget.product.isActive && !_isOutOfStock)
                     _buildQuantitySelector(),
@@ -585,7 +653,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              'SKU: ${_selectedVariant?.sku ?? widget.product.sku}',
+              'SKU: ${_selectedVariantCombination?.sku ?? widget.product.sku}',
               style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
             ),
           ),
@@ -601,7 +669,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   children: [
                     // Show price range if has variants but no variant selected, or current price
                     Text(
-                      widget.product.hasVariants && _selectedVariant == null
+                      widget.product.hasVariants && _selectedVariantCombination == null
                           ? widget.product.priceRange
                           : _getFormattedPrice(_currentPrice),
                       style: const TextStyle(
@@ -618,13 +686,15 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       ),
                     ),
                     // Show price adjustment if variant selected
-                    if (_selectedVariant != null && _selectedVariant!.priceAdjustment != 0) ...[
+                    if (_selectedVariantCombination != null && _selectedVariantCombination!.priceAdjustment != 0) ...[
                       const SizedBox(height: 4),
                       Text(
-                        _selectedVariant!.formattedPriceAdjustment,
+                        _selectedVariantCombination!.priceAdjustment > 0 
+                            ? '+${_getFormattedPrice(_selectedVariantCombination!.priceAdjustment)}'
+                            : '${_getFormattedPrice(_selectedVariantCombination!.priceAdjustment)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: _selectedVariant!.priceAdjustment > 0 ? Colors.red : Colors.green,
+                          color: _selectedVariantCombination!.priceAdjustment > 0 ? Colors.red : Colors.green,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -692,11 +762,12 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   Widget _buildVariantSelector() {
-    if (!widget.product.hasVariants || widget.product.variants == null || widget.product.variants!.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (!widget.product.hasVariants) return const SizedBox.shrink();
 
-    final variants = widget.product.productVariants;
+    final attributes = widget.product.getVariantAttributes();
+    final combinations = widget.product.getVariantCombinations();
+
+    if (attributes.isEmpty || combinations.isEmpty) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -730,91 +801,133 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             ],
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: variants.map((variant) {
-              final isSelected = _selectedVariant?.id == variant.id;
-              final isAvailable = variant.stock > 0;
-              
-              return GestureDetector(
-                onTap: isAvailable ? () {
-                  setState(() {
-                    _selectedVariant = variant;
-                    _updatePriceAndStock();
-                  });
-                } : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? const Color(0xFF2E7D32).withOpacity(0.1)
-                        : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected 
-                          ? const Color(0xFF2E7D32)
-                          : isAvailable ? Colors.grey[300]! : Colors.red[300]!,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        variant.name,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isAvailable 
-                              ? (isSelected ? const Color(0xFF2E7D32) : const Color(0xFF2D3748))
-                              : Colors.red,
-                          decoration: isAvailable ? null : TextDecoration.lineThrough,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _getFormattedPrice(widget.product.price + variant.priceAdjustment),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: isAvailable ? Colors.grey[700] : Colors.red,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Stok: ${variant.stock}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isAvailable ? Colors.grey[600] : Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (variant.priceAdjustment != 0) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          variant.formattedPriceAdjustment,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: variant.priceAdjustment > 0 ? Colors.red : Colors.green,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
+
+          // Display attributes and their options
+          ...attributes.map((attribute) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  attribute.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D3748),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-          if (_selectedVariant == null) ...[
-            const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: attribute.options.map((option) {
+                    final isSelected = _selectedAttributes[attribute.id] == option;
+                    
+                    // Check if this option is available in any combination
+                    final isAvailable = combinations.any((combination) =>
+                        combination.attributes[attribute.id] == option &&
+                        combination.stock > 0 &&
+                        combination.isActive);
+                    
+                    return GestureDetector(
+                      onTap: isAvailable ? () {
+                        _updateAttributeSelection(attribute.id, option);
+                      } : null,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                              ? const Color(0xFF2E7D32).withOpacity(0.1)
+                              : Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected 
+                                ? const Color(0xFF2E7D32)
+                                : isAvailable ? Colors.grey[300]! : Colors.red[300]!,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          option,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isAvailable 
+                                ? (isSelected ? const Color(0xFF2E7D32) : const Color(0xFF2D3748))
+                                : Colors.red,
+                            decoration: isAvailable ? null : TextDecoration.lineThrough,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+            );
+          }).toList(),
+
+          // Selected combination info
+          if (_selectedVariantCombination != null) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle, size: 16, color: Colors.green[700]),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Varian Terpilih:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _getCombinationDisplayName(_selectedVariantCombination!),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green[800],
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _getFormattedPrice(_currentPrice),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'SKU: ${_selectedVariantCombination!.sku}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.green[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (widget.product.hasVariants) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -828,7 +941,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Silakan pilih varian terlebih dahulu',
+                      'Silakan pilih semua opsi varian terlebih dahulu',
                       style: TextStyle(fontSize: 12, color: Colors.orange),
                     ),
                   ),
@@ -843,7 +956,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   Widget _buildQuantitySelector() {
     // Don't show if variant required but not selected
-    if (widget.product.hasVariants && _selectedVariant == null) {
+    if (widget.product.hasVariants && _selectedVariantCombination == null) {
       return const SizedBox.shrink();
     }
 
@@ -1049,8 +1162,10 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   _buildSpecRow('Satuan', widget.product.unit),
                   if (widget.product.weight != null)
                     _buildSpecRow('Berat', '${widget.product.weight} kg'),
-                  if (widget.product.hasVariants)
-                    _buildSpecRow('Varian', '${widget.product.variants!.length} pilihan'),
+                  if (widget.product.hasVariants) ...[
+                    _buildSpecRow('Jumlah Varian', '${widget.product.getVariantCombinations().length} kombinasi'),
+                    _buildSpecRow('Atribut Varian', widget.product.getVariantAttributes().map((attr) => attr.name).join(', ')),
+                  ],
                   
                   // Additional specifications would go here
                   const SizedBox(height: 16),
@@ -1198,17 +1313,13 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   Widget _buildBottomBar() {
-    final canAddToCart = widget.product.isActive && 
-                        !_isOutOfStock && 
-                        (!widget.product.hasVariants || _selectedVariant != null);
-
-    if (!canAddToCart) {
+    if (!_canAddToCart) {
       String buttonText = 'Produk Tidak Tersedia';
       if (!widget.product.isActive) {
         buttonText = 'Produk Tidak Aktif';
       } else if (_isOutOfStock) {
         buttonText = 'Stok Habis';
-      } else if (widget.product.hasVariants && _selectedVariant == null) {
+      } else if (widget.product.hasVariants && _selectedVariantCombination == null) {
         buttonText = 'Pilih Varian Terlebih Dahulu';
       }
 
