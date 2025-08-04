@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:toko_online_material/chat_list_page.dart';
 import 'package:toko_online_material/service/cart_service.dart';
+import 'package:toko_online_material/service/chat_service.dart';
 import 'beranda_page.dart';
 import 'cart_page.dart';
 import 'profile_page.dart';
@@ -89,14 +91,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
         children: [
           const BerandaPage(),
           const CartPage(),
-          _buildPlaceholderPage(
-            icon: Icons.chat_bubble_outline,
-            title: 'Chat',
-            subtitle: 'Fitur chat akan segera hadir',
-            description:
-                'Hubungi admin Toko Barokah untuk konsultasi produk material',
-            color: Colors.blue.shade600,
-          ),
+          const ChatListPage(), // Ganti placeholder dengan ChatListPage
           _buildPlaceholderPage(
             icon: Icons.assignment_outlined,
             title: 'Pesanan',
@@ -300,6 +295,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                 activeIcon: Icons.chat_bubble,
                 label: 'Chat',
                 animationController: _animationControllers[2],
+                // Hapus showBadge: true karena sekarang badge dihandle dalam widget
               ),
               _buildNavItem(
                 index: 3,
@@ -364,6 +360,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                         size: 24,
                       ),
                     ),
+                    // Cart badge
                     if (showBadge && index == 1)
                       Consumer<CartService>(
                         builder: (context, cartService, child) {
@@ -389,6 +386,47 @@ class _MainNavigationPageState extends State<MainNavigationPage>
                                   cartService.totalQuantity > 99
                                       ? '99+'
                                       : cartService.totalQuantity.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    // Chat badge
+                    if (index == 2)
+                      StreamBuilder<int>(
+                        stream: ChatService().getUnreadCountStream(),
+                        builder: (context, snapshot) {
+                          final unreadCount = snapshot.data ?? 0;
+                          if (unreadCount > 0) {
+                            return Positioned(
+                              right: -8,
+                              top: -8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1565C0),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  unreadCount > 99
+                                      ? '99+'
+                                      : unreadCount.toString(),
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,

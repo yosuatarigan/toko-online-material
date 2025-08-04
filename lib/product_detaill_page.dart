@@ -3,9 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:toko_online_material/cart_page.dart';
+import 'package:toko_online_material/chat_detail_page.dart';
 import 'package:toko_online_material/image_viewer.dart';
 import 'package:toko_online_material/product_card.dart';
 import 'package:toko_online_material/service/cart_service.dart';
+import 'package:toko_online_material/service/chat_service.dart';
 import '../models/product.dart';
 
 class ProductDetailPage extends StatefulWidget {
@@ -24,14 +26,15 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  
+  final ChatService _chatService = ChatService();
+
   PageController _imageController = PageController();
   int _currentImageIndex = 0;
   int _quantity = 1;
   bool _isFavorite = false;
   List<Product> _relatedProducts = [];
   bool _isLoading = true;
-  
+
   // Enhanced Variant state
   ProductVariantCombination? _selectedVariantCombination;
   Map<String, String> _selectedAttributes = {}; // attributeId: optionValue
@@ -42,26 +45,27 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
-    
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-    
+
     _initializeProductData();
     _loadRelatedProducts();
     _startAnimations();
@@ -73,7 +77,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       final combinations = widget.product.getVariantCombinations();
       if (combinations.isNotEmpty) {
         // Select first available combination or first combination
-        final availableCombinations = combinations.where((c) => c.stock > 0 && c.isActive).toList();
+        final availableCombinations =
+            combinations.where((c) => c.stock > 0 && c.isActive).toList();
         if (availableCombinations.isNotEmpty) {
           _selectedVariantCombination = availableCombinations.first;
         } else {
@@ -93,13 +98,14 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   void _updatePriceAndStock() {
     if (_selectedVariantCombination != null) {
-      _currentPrice = widget.product.price + _selectedVariantCombination!.priceAdjustment;
+      _currentPrice =
+          widget.product.price + _selectedVariantCombination!.priceAdjustment;
       _availableStock = _selectedVariantCombination!.stock;
     } else {
       _currentPrice = widget.product.price;
       _availableStock = widget.product.totalStock;
     }
-    
+
     // Reset quantity if it exceeds available stock
     if (_quantity > _availableStock) {
       _quantity = _availableStock > 0 ? 1 : 0;
@@ -117,19 +123,21 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   void _updateAttributeSelection(String attributeId, String optionValue) {
     setState(() {
       _selectedAttributes[attributeId] = optionValue;
-      
+
       // Find matching combination
       final combinations = widget.product.getVariantCombinations();
       final matchingCombination = combinations.firstWhere(
-        (combination) => _mapEquals(combination.attributes, _selectedAttributes),
-        orElse: () => ProductVariantCombination(
-          id: '',
-          attributes: {},
-          sku: '',
-          stock: 0,
-        ),
+        (combination) =>
+            _mapEquals(combination.attributes, _selectedAttributes),
+        orElse:
+            () => ProductVariantCombination(
+              id: '',
+              attributes: {},
+              sku: '',
+              stock: 0,
+            ),
       );
-      
+
       if (matchingCombination.id.isNotEmpty) {
         _selectedVariantCombination = matchingCombination;
         _updatePriceAndStock();
@@ -152,7 +160,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   String _getCombinationDisplayName(ProductVariantCombination combination) {
     final attributes = widget.product.getVariantAttributes();
     List<String> parts = [];
-    
+
     for (String attributeId in combination.attributes.keys) {
       final attribute = attributes.firstWhere(
         (attr) => attr.id == attributeId,
@@ -186,18 +194,20 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   Future<void> _loadRelatedProducts() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('products')
-          .where('categoryId', isEqualTo: widget.product.categoryId)
-          .where('isActive', isEqualTo: true)
-          .limit(6)
-          .get();
+      final snapshot =
+          await FirebaseFirestore.instance
+              .collection('products')
+              .where('categoryId', isEqualTo: widget.product.categoryId)
+              .where('isActive', isEqualTo: true)
+              .limit(6)
+              .get();
 
-      final products = snapshot.docs
-          .map((doc) => Product.fromFirestore(doc))
-          .where((product) => product.id != widget.product.id)
-          .take(4)
-          .toList();
+      final products =
+          snapshot.docs
+              .map((doc) => Product.fromFirestore(doc))
+              .where((product) => product.id != widget.product.id)
+              .take(4)
+              .toList();
 
       setState(() {
         _relatedProducts = products;
@@ -212,23 +222,24 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   void _addToCart() async {
     final cartService = Provider.of<CartService>(context, listen: false);
-    
+
     // Create variant info if applicable
     String? variantId;
     if (_selectedVariantCombination != null) {
       variantId = _selectedVariantCombination!.id;
     }
-    
+
     final success = await cartService.addItem(
-      widget.product, 
+      widget.product,
       quantity: _quantity,
       variantId: variantId,
     );
 
     if (success && mounted) {
-      final variantText = _selectedVariantCombination != null 
-          ? ' (${_getCombinationDisplayName(_selectedVariantCombination!)})' 
-          : '';
+      final variantText =
+          _selectedVariantCombination != null
+              ? ' (${_getCombinationDisplayName(_selectedVariantCombination!)})'
+              : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -236,13 +247,17 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               const Icon(Icons.check_circle, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('${widget.product.name}$variantText ($_quantity x) ditambahkan ke keranjang'),
+                child: Text(
+                  '${widget.product.name}$variantText ($_quantity x) ditambahkan ke keranjang',
+                ),
               ),
             ],
           ),
           backgroundColor: const Color(0xFF2E7D32),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           action: SnackBarAction(
             label: 'Lihat Keranjang',
             textColor: Colors.white,
@@ -267,7 +282,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -275,14 +292,14 @@ class _ProductDetailPageState extends State<ProductDetailPage>
 
   void _buyNow() async {
     final cartService = Provider.of<CartService>(context, listen: false);
-    
+
     String? variantId;
     if (_selectedVariantCombination != null) {
       variantId = _selectedVariantCombination!.id;
     }
-    
+
     final success = await cartService.addItem(
-      widget.product, 
+      widget.product,
       quantity: _quantity,
       variantId: variantId,
     );
@@ -304,7 +321,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     }
@@ -322,10 +341,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   String _getFormattedPrice(double price) {
-    return 'Rp ${price.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    )}';
+    return 'Rp ${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
   }
 
   bool get _isOutOfStock {
@@ -336,9 +352,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   bool get _canAddToCart {
-    return widget.product.isActive && 
-           !_isOutOfStock && 
-           (!widget.product.hasVariants || _selectedVariantCombination != null);
+    return widget.product.isActive &&
+        !_isOutOfStock &&
+        (!widget.product.hasVariants || _selectedVariantCombination != null);
   }
 
   @override
@@ -347,9 +363,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       backgroundColor: const Color(0xFFF8FAFC),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            _buildSliverAppBar(),
-          ];
+          return [_buildSliverAppBar()];
         },
         body: FadeTransition(
           opacity: _fadeAnimation,
@@ -360,8 +374,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildProductInfo(),
-                  if (widget.product.hasVariants)
-                    _buildVariantSelector(),
+                  if (widget.product.hasVariants) _buildVariantSelector(),
                   if (widget.product.isActive && !_isOutOfStock)
                     _buildQuantitySelector(),
                   _buildTabsSection(),
@@ -428,11 +441,15 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    _isFavorite ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit',
+                    _isFavorite
+                        ? 'Ditambahkan ke favorit'
+                        : 'Dihapus dari favorit',
                   ),
                   backgroundColor: Theme.of(context).primaryColor,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               );
             },
@@ -457,9 +474,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           ),
         ),
       ],
-      flexibleSpace: FlexibleSpaceBar(
-        background: _buildImageGallery(),
-      ),
+      flexibleSpace: FlexibleSpaceBar(background: _buildImageGallery()),
     );
   }
 
@@ -477,120 +492,145 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
         ),
-        child: widget.product.imageUrls.isNotEmpty
-            ? Stack(
-                children: [
-                  PageView.builder(
-                    controller: _imageController,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentImageIndex = index;
-                      });
-                    },
-                    itemCount: widget.product.imageUrls.length,
-                    itemBuilder: (context, index) {
-                      return GestureDetector(
-                        onTap: () {
-                          showImageViewer(
-                            context,
-                            imageUrls: widget.product.imageUrls,
-                            initialIndex: index,
-                            productName: widget.product.name,
-                          );
-                        },
-                        child: Container(
-                          color: Colors.grey[50],
-                          child: CachedNetworkImage(
-                            imageUrl: widget.product.imageUrls[index],
-                            width: double.infinity,
-                            height: double.infinity,
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => Container(
-                              color: Colors.grey[100],
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Theme.of(context).primaryColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => Container(
-                              color: Colors.grey[100],
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.image_outlined, size: 64, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text('Gambar tidak dapat dimuat', style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Image indicators
-                  if (widget.product.imageUrls.length > 1)
-                    Positioned(
-                      bottom: 24,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          widget.product.imageUrls.length,
-                          (index) => AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            width: index == _currentImageIndex ? 24 : 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              color: index == _currentImageIndex
-                                  ? Theme.of(context).primaryColor
-                                  : Colors.white.withOpacity(0.6),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // Zoom hint
-                  Positioned(
-                    top: 100,
-                    right: 20,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.zoom_in, size: 16, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text('Tap to zoom', style: TextStyle(color: Colors.white, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Container(
-                color: Colors.grey[100],
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        child:
+            widget.product.imageUrls.isNotEmpty
+                ? Stack(
                   children: [
-                    Icon(Icons.image_outlined, size: 64, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('Tidak ada gambar', style: TextStyle(color: Colors.grey)),
+                    PageView.builder(
+                      controller: _imageController,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentImageIndex = index;
+                        });
+                      },
+                      itemCount: widget.product.imageUrls.length,
+                      itemBuilder: (context, index) {
+                        return GestureDetector(
+                          onTap: () {
+                            showImageViewer(
+                              context,
+                              imageUrls: widget.product.imageUrls,
+                              initialIndex: index,
+                              productName: widget.product.name,
+                            );
+                          },
+                          child: Container(
+                            color: Colors.grey[50],
+                            child: CachedNetworkImage(
+                              imageUrl: widget.product.imageUrls[index],
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.contain,
+                              placeholder:
+                                  (context, url) => Container(
+                                    color: Colors.grey[100],
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Theme.of(context).primaryColor,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                              errorWidget:
+                                  (context, url, error) => Container(
+                                    color: Colors.grey[100],
+                                    child: const Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.image_outlined,
+                                          size: 64,
+                                          color: Colors.grey,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Gambar tidak dapat dimuat',
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // Image indicators
+                    if (widget.product.imageUrls.length > 1)
+                      Positioned(
+                        bottom: 24,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            widget.product.imageUrls.length,
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              width: index == _currentImageIndex ? 24 : 8,
+                              height: 8,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                color:
+                                    index == _currentImageIndex
+                                        ? Theme.of(context).primaryColor
+                                        : Colors.white.withOpacity(0.6),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Zoom hint
+                    Positioned(
+                      top: 100,
+                      right: 20,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.zoom_in, size: 16, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tap to zoom',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
+                )
+                : Container(
+                  color: Colors.grey[100],
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.image_outlined, size: 64, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text(
+                        'Tidak ada gambar',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
       ),
     );
   }
@@ -654,7 +694,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             ),
             child: Text(
               'SKU: ${_selectedVariantCombination?.sku ?? widget.product.sku}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
 
@@ -669,7 +713,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   children: [
                     // Show price range if has variants but no variant selected, or current price
                     Text(
-                      widget.product.hasVariants && _selectedVariantCombination == null
+                      widget.product.hasVariants &&
+                              _selectedVariantCombination == null
                           ? widget.product.priceRange
                           : _getFormattedPrice(_currentPrice),
                       style: const TextStyle(
@@ -680,21 +725,22 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                     ),
                     Text(
                       'per ${widget.product.unit}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                     // Show price adjustment if variant selected
-                    if (_selectedVariantCombination != null && _selectedVariantCombination!.priceAdjustment != 0) ...[
+                    if (_selectedVariantCombination != null &&
+                        _selectedVariantCombination!.priceAdjustment != 0) ...[
                       const SizedBox(height: 4),
                       Text(
-                        _selectedVariantCombination!.priceAdjustment > 0 
+                        _selectedVariantCombination!.priceAdjustment > 0
                             ? '+${_getFormattedPrice(_selectedVariantCombination!.priceAdjustment)}'
                             : '${_getFormattedPrice(_selectedVariantCombination!.priceAdjustment)}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: _selectedVariantCombination!.priceAdjustment > 0 ? Colors.red : Colors.green,
+                          color:
+                              _selectedVariantCombination!.priceAdjustment > 0
+                                  ? Colors.red
+                                  : Colors.green,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -703,18 +749,27 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: widget.product.stockStatusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: widget.product.stockStatusColor.withOpacity(0.3)),
+                  border: Border.all(
+                    color: widget.product.stockStatusColor.withOpacity(0.3),
+                  ),
                 ),
                 child: Column(
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.inventory, size: 16, color: widget.product.stockStatusColor),
+                        Icon(
+                          Icons.inventory,
+                          size: 16,
+                          color: widget.product.stockStatusColor,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '$_availableStock tersedia',
@@ -730,10 +785,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       const SizedBox(height: 4),
                       Text(
                         'Total: ${widget.product.totalStock}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                       ),
                     ],
                   ],
@@ -767,7 +819,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     final attributes = widget.product.getVariantAttributes();
     final combinations = widget.product.getVariantCombinations();
 
-    if (attributes.isEmpty || combinations.isEmpty) return const SizedBox.shrink();
+    if (attributes.isEmpty || combinations.isEmpty)
+      return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -819,48 +872,71 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: attribute.options.map((option) {
-                    final isSelected = _selectedAttributes[attribute.id] == option;
-                    
-                    // Check if this option is available in any combination
-                    final isAvailable = combinations.any((combination) =>
-                        combination.attributes[attribute.id] == option &&
-                        combination.stock > 0 &&
-                        combination.isActive);
-                    
-                    return GestureDetector(
-                      onTap: isAvailable ? () {
-                        _updateAttributeSelection(attribute.id, option);
-                      } : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: isSelected 
-                              ? const Color(0xFF2E7D32).withOpacity(0.1)
-                              : Colors.grey[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected 
-                                ? const Color(0xFF2E7D32)
-                                : isAvailable ? Colors.grey[300]! : Colors.red[300]!,
-                            width: isSelected ? 2 : 1,
+                  children:
+                      attribute.options.map((option) {
+                        final isSelected =
+                            _selectedAttributes[attribute.id] == option;
+
+                        // Check if this option is available in any combination
+                        final isAvailable = combinations.any(
+                          (combination) =>
+                              combination.attributes[attribute.id] == option &&
+                              combination.stock > 0 &&
+                              combination.isActive,
+                        );
+
+                        return GestureDetector(
+                          onTap:
+                              isAvailable
+                                  ? () {
+                                    _updateAttributeSelection(
+                                      attribute.id,
+                                      option,
+                                    );
+                                  }
+                                  : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected
+                                      ? const Color(0xFF2E7D32).withOpacity(0.1)
+                                      : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    isSelected
+                                        ? const Color(0xFF2E7D32)
+                                        : isAvailable
+                                        ? Colors.grey[300]!
+                                        : Colors.red[300]!,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Text(
+                              option,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    isAvailable
+                                        ? (isSelected
+                                            ? const Color(0xFF2E7D32)
+                                            : const Color(0xFF2D3748))
+                                        : Colors.red,
+                                decoration:
+                                    isAvailable
+                                        ? null
+                                        : TextDecoration.lineThrough,
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          option,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isAvailable 
-                                ? (isSelected ? const Color(0xFF2E7D32) : const Color(0xFF2D3748))
-                                : Colors.red,
-                            decoration: isAvailable ? null : TextDecoration.lineThrough,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -881,7 +957,11 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.check_circle, size: 16, color: Colors.green[700]),
+                      Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: Colors.green[700],
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Varian Terpilih:',
@@ -899,7 +979,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                     children: [
                       Expanded(
                         child: Text(
-                          _getCombinationDisplayName(_selectedVariantCombination!),
+                          _getCombinationDisplayName(
+                            _selectedVariantCombination!,
+                          ),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -919,10 +1001,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   ),
                   Text(
                     'SKU: ${_selectedVariantCombination!.sku}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.green[600],
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.green[600]),
                   ),
                 ],
               ),
@@ -1025,7 +1104,10 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Total Harga', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'Total Harga',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     _getFormattedPrice(_currentPrice * _quantity),
@@ -1049,13 +1131,17 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: onPressed != null ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.grey[100],
+        color:
+            onPressed != null
+                ? Theme.of(context).primaryColor.withOpacity(0.1)
+                : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
       ),
       child: IconButton(
         icon: Icon(
           icon,
-          color: onPressed != null ? Theme.of(context).primaryColor : Colors.grey,
+          color:
+              onPressed != null ? Theme.of(context).primaryColor : Colors.grey,
         ),
         onPressed: onPressed,
       ),
@@ -1081,7 +1167,9 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           Container(
             decoration: BoxDecoration(
               color: Colors.grey[50],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: TabBar(
               controller: _tabController,
@@ -1163,10 +1251,19 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   if (widget.product.weight != null)
                     _buildSpecRow('Berat', '${widget.product.weight} kg'),
                   if (widget.product.hasVariants) ...[
-                    _buildSpecRow('Jumlah Varian', '${widget.product.getVariantCombinations().length} kombinasi'),
-                    _buildSpecRow('Atribut Varian', widget.product.getVariantAttributes().map((attr) => attr.name).join(', ')),
+                    _buildSpecRow(
+                      'Jumlah Varian',
+                      '${widget.product.getVariantCombinations().length} kombinasi',
+                    ),
+                    _buildSpecRow(
+                      'Atribut Varian',
+                      widget.product
+                          .getVariantAttributes()
+                          .map((attr) => attr.name)
+                          .join(', '),
+                    ),
                   ],
-                  
+
                   // Additional specifications would go here
                   const SizedBox(height: 16),
                   _buildEmptyState(
@@ -1319,7 +1416,8 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         buttonText = 'Produk Tidak Aktif';
       } else if (_isOutOfStock) {
         buttonText = 'Stok Habis';
-      } else if (widget.product.hasVariants && _selectedVariantCombination == null) {
+      } else if (widget.product.hasVariants &&
+          _selectedVariantCombination == null) {
         buttonText = 'Pilih Varian Terlebih Dahulu';
       }
 
@@ -1336,22 +1434,47 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             ),
           ],
         ),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey[400],
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            buttonText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
+        child: Row(
+          children: [
+            // Chat button - always available
+            Expanded(
+              flex: 1,
+              child: OutlinedButton.icon(
+                onPressed: _startChatWithAdmin,
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text('Chat'),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF1565C0)),
+                  foregroundColor: const Color(0xFF1565C0),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            // Disabled product button
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  buttonText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -1371,39 +1494,61 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       ),
       child: Row(
         children: [
+          // Chat button
+          OutlinedButton.icon(
+            onPressed: _startChatWithAdmin,
+            icon: const Icon(Icons.chat_bubble_outline, size: 18),
+            label: const Text('Chat'),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF1565C0)),
+              foregroundColor: const Color(0xFF1565C0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(80, 48),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Add to cart button
           Expanded(
             child: OutlinedButton(
               onPressed: _addToCart,
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: Theme.of(context).primaryColor),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: Text(
                 'Tambah ke Keranjang',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Theme.of(context).primaryColor,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+          // Buy now button
           Expanded(
             child: ElevatedButton(
               onPressed: _buyNow,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 0,
                 shadowColor: Theme.of(context).primaryColor.withOpacity(0.3),
               ),
               child: const Text(
                 'Beli Sekarang',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -1413,5 +1558,83 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         ],
       ),
     );
+  }
+
+  void _startChatWithAdmin() async {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final chatId = await _chatService.createOrGetChat(
+        product: widget.product,
+      );
+
+      // Hide loading
+      if (mounted) Navigator.pop(context);
+
+      if (chatId != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ChatDetailPage(
+                  chatId: chatId,
+                  chatTitle: 'Chat tentang ${widget.product.name}',
+                  productId: widget.product.id,
+                  productName: widget.product.name,
+                  productImageUrl:
+                      widget.product.imageUrls.isNotEmpty
+                          ? widget.product.imageUrls.first
+                          : null,
+                ),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('Gagal memulai chat. Pastikan Anda sudah login.'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Hide loading if still showing
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Error: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
   }
 }

@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:toko_online_material/admin/add_edit_kateogory.dart';
 import 'package:toko_online_material/admin/add_edit_produk.dart';
+import 'package:toko_online_material/admin/admin_chat_list_page.dart';
+import 'package:toko_online_material/service/chat_service.dart';
 import '../models/category.dart';
 import '../models/product.dart';
 
@@ -26,6 +28,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       _DashboardTab(),
       _ProductsTab(),
       _CategoriesTab(),
+      const AdminChatListPage(), //
       _OrdersTab(),
       _ReportsTab(),
     ]);
@@ -70,46 +73,44 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 _showComingSoon(value);
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 12),
-                    Text('Profile Admin'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined),
-                    SizedBox(width: 12),
-                    Text('Pengaturan'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Keluar', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline),
+                        SizedBox(width: 12),
+                        Text('Profile Admin'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'settings',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings_outlined),
+                        SizedBox(width: 12),
+                        Text('Pengaturan'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text('Keluar', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
@@ -130,28 +131,112 @@ class _AdminHomePageState extends State<AdminHomePage> {
           fontSize: 12,
         ),
         elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.inventory_2_outlined),
             activeIcon: Icon(Icons.inventory_2),
             label: 'Produk',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.category_outlined),
             activeIcon: Icon(Icons.category),
             label: 'Kategori',
           ),
+          // Chat tab dengan badge
           BottomNavigationBarItem(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.chat_bubble_outline),
+                StreamBuilder<int>(
+                  stream: ChatService().getAdminUnreadCountStream(),
+                  builder: (context, snapshot) {
+                    final unreadCount = snapshot.data ?? 0;
+                    if (unreadCount > 0) {
+                      return Positioned(
+                        right: -8,
+                        top: -8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade600,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+            activeIcon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.chat_bubble),
+                StreamBuilder<int>(
+                  stream: ChatService().getAdminUnreadCountStream(),
+                  builder: (context, snapshot) {
+                    final unreadCount = snapshot.data ?? 0;
+                    if (unreadCount > 0) {
+                      return Positioned(
+                        right: -8,
+                        top: -8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade600,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+            label: 'Chat',
+          ),
+          const BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long),
             label: 'Pesanan',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.analytics_outlined),
             activeIcon: Icon(Icons.analytics),
             label: 'Laporan',
@@ -170,8 +255,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
       case 2:
         return 'Kelola Kategori';
       case 3:
-        return 'Kelola Pesanan';
+        return 'Chat Pelanggan';
       case 4:
+        return 'Kelola Pesanan';
+      case 5:
         return 'Laporan & Analitik';
       default:
         return 'Admin Dashboard';
@@ -195,7 +282,7 @@ class _DashboardTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -267,9 +354,9 @@ class _DashboardTab extends StatelessWidget {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Quick Stats
           const Text(
             'Statistik Cepat',
@@ -280,16 +367,26 @@ class _DashboardTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('products').snapshots(),
+            stream:
+                FirebaseFirestore.instance.collection('products').snapshots(),
             builder: (context, productSnapshot) {
               return StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('categories').snapshots(),
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('categories')
+                        .snapshots(),
                 builder: (context, categorySnapshot) {
-                  final productCount = productSnapshot.hasData ? productSnapshot.data!.docs.length : 0;
-                  final categoryCount = categorySnapshot.hasData ? categorySnapshot.data!.docs.length : 0;
-                  
+                  final productCount =
+                      productSnapshot.hasData
+                          ? productSnapshot.data!.docs.length
+                          : 0;
+                  final categoryCount =
+                      categorySnapshot.hasData
+                          ? categorySnapshot.data!.docs.length
+                          : 0;
+
                   return GridView.count(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -333,7 +430,12 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -357,11 +459,7 @@ class _DashboardTab extends StatelessWidget {
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              size: 24,
-              color: color,
-            ),
+            child: Icon(icon, size: 24, color: color),
           ),
           const Spacer(),
           Text(
@@ -375,10 +473,7 @@ class _DashboardTab extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF718096),
-            ),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF718096)),
           ),
         ],
       ),
@@ -411,10 +506,12 @@ class _ProductsTabState extends State<_ProductsTab> {
 
   List<Product> _filterProducts(List<Product> products) {
     if (_searchQuery.isEmpty) return products;
-    
+
     return products.where((product) {
       return product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             product.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          product.description.toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          );
     }).toList();
   }
 
@@ -424,7 +521,7 @@ class _ProductsTabState extends State<_ProductsTab> {
           .collection('products')
           .doc(product.id)
           .delete();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -448,24 +545,30 @@ class _ProductsTabState extends State<_ProductsTab> {
   void _showDeleteConfirmation(Product product) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Produk'),
-        content: Text('Apakah Anda yakin ingin menghapus produk "${product.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Hapus Produk'),
+            content: Text(
+              'Apakah Anda yakin ingin menghapus produk "${product.name}"?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteProduct(product);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Hapus',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteProduct(product);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -485,17 +588,18 @@ class _ProductsTabState extends State<_ProductsTab> {
                   decoration: InputDecoration(
                     hintText: 'Cari produk...',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                            : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -524,7 +628,7 @@ class _ProductsTabState extends State<_ProductsTab> {
             ],
           ),
         ),
-        
+
         // Products List
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
@@ -560,27 +664,23 @@ class _ProductsTabState extends State<_ProductsTab> {
                       const SizedBox(height: 16),
                       Text(
                         'Belum ada produk',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Tap tombol + untuk menambah produk',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(color: Colors.grey[500]),
                       ),
                     ],
                   ),
                 );
               }
 
-              final products = snapshot.data!.docs
-                  .map((doc) => Product.fromFirestore(doc))
-                  .toList();
-              
+              final products =
+                  snapshot.data!.docs
+                      .map((doc) => Product.fromFirestore(doc))
+                      .toList();
+
               final filteredProducts = _filterProducts(products);
 
               if (filteredProducts.isEmpty && _searchQuery.isNotEmpty) {
@@ -588,18 +688,11 @@ class _ProductsTabState extends State<_ProductsTab> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.search_off,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
+                      Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
                       Text(
                         'Produk tidak ditemukan',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -609,7 +702,8 @@ class _ProductsTabState extends State<_ProductsTab> {
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: filteredProducts.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder:
+                    (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final product = filteredProducts[index];
                   return _ProductCard(
@@ -618,7 +712,8 @@ class _ProductsTabState extends State<_ProductsTab> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AddEditProductPage(product: product),
+                          builder:
+                              (context) => AddEditProductPage(product: product),
                         ),
                       );
                     },
@@ -659,26 +754,31 @@ class _CategoriesTabState extends State<_CategoriesTab> {
 
   List<Category> _filterCategories(List<Category> categories) {
     if (_searchQuery.isEmpty) return categories;
-    
+
     return categories.where((category) {
       return category.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             category.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          category.description.toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          );
     }).toList();
   }
 
   Future<void> _deleteCategory(Category category) async {
     // Check if category is being used by products
-    final productsQuery = await FirebaseFirestore.instance
-        .collection('products')
-        .where('categoryId', isEqualTo: category.id)
-        .limit(1)
-        .get();
+    final productsQuery =
+        await FirebaseFirestore.instance
+            .collection('products')
+            .where('categoryId', isEqualTo: category.id)
+            .limit(1)
+            .get();
 
     if (productsQuery.docs.isNotEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Kategori tidak dapat dihapus karena masih digunakan oleh produk'),
+            content: Text(
+              'Kategori tidak dapat dihapus karena masih digunakan oleh produk',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -691,7 +791,7 @@ class _CategoriesTabState extends State<_CategoriesTab> {
           .collection('categories')
           .doc(category.id)
           .delete();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -715,24 +815,30 @@ class _CategoriesTabState extends State<_CategoriesTab> {
   void _showDeleteConfirmation(Category category) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Kategori'),
-        content: Text('Apakah Anda yakin ingin menghapus kategori "${category.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Hapus Kategori'),
+            content: Text(
+              'Apakah Anda yakin ingin menghapus kategori "${category.name}"?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteCategory(category);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Hapus',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteCategory(category);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -752,17 +858,18 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                   decoration: InputDecoration(
                     hintText: 'Cari kategori...',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                            : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -791,7 +898,7 @@ class _CategoriesTabState extends State<_CategoriesTab> {
             ],
           ),
         ),
-        
+
         // Categories List
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
@@ -827,27 +934,23 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                       const SizedBox(height: 16),
                       Text(
                         'Belum ada kategori',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Tap tombol + untuk menambah kategori',
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(color: Colors.grey[500]),
                       ),
                     ],
                   ),
                 );
               }
 
-              final categories = snapshot.data!.docs
-                  .map((doc) => Category.fromFirestore(doc))
-                  .toList();
-              
+              final categories =
+                  snapshot.data!.docs
+                      .map((doc) => Category.fromFirestore(doc))
+                      .toList();
+
               final filteredCategories = _filterCategories(categories);
 
               if (filteredCategories.isEmpty && _searchQuery.isNotEmpty) {
@@ -855,18 +958,11 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.search_off,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
+                      Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
                       const SizedBox(height: 16),
                       Text(
                         'Kategori tidak ditemukan',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -876,7 +972,8 @@ class _CategoriesTabState extends State<_CategoriesTab> {
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: filteredCategories.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder:
+                    (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final category = filteredCategories[index];
                   return _CategoryCard(
@@ -885,7 +982,9 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AddEditCategoryPage(category: category),
+                          builder:
+                              (context) =>
+                                  AddEditCategoryPage(category: category),
                         ),
                       );
                     },
@@ -962,11 +1061,7 @@ Widget _buildComingSoonContent(String feature) {
         const Text(
           'Sedang dalam pengembangan\nakan segera hadir!',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF718096),
-            height: 1.5,
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF718096), height: 1.5),
         ),
         const SizedBox(height: 24),
         Container(
@@ -1021,26 +1116,27 @@ class _ProductCard extends StatelessWidget {
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: product.imageUrls.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          product.imageUrls.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.image_not_supported);
-                          },
+                child:
+                    product.imageUrls.isNotEmpty
+                        ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            product.imageUrls.first,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.image_not_supported);
+                            },
+                          ),
+                        )
+                        : const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 30,
+                          color: Colors.grey,
                         ),
-                      )
-                    : const Icon(
-                        Icons.inventory_2_outlined,
-                        size: 30,
-                        color: Colors.grey,
-                      ),
               ),
-              
+
               const SizedBox(width: 16),
-              
+
               // Product Info
               Expanded(
                 child: Column(
@@ -1082,9 +1178,10 @@ class _ProductCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: product.isActive
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.red.withOpacity(0.1),
+                            color:
+                                product.isActive
+                                    ? Colors.green.withOpacity(0.1)
+                                    : Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1092,9 +1189,10 @@ class _ProductCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: product.isActive
-                                  ? Colors.green[700]
-                                  : Colors.red[700],
+                              color:
+                                  product.isActive
+                                      ? Colors.green[700]
+                                      : Colors.red[700],
                             ),
                           ),
                         ),
@@ -1103,7 +1201,7 @@ class _ProductCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Actions
               PopupMenuButton<String>(
                 onSelected: (value) {
@@ -1113,28 +1211,29 @@ class _ProductCard extends StatelessWidget {
                     onDelete();
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('Edit'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
-                        SizedBox(width: 12),
-                        Text('Hapus', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder:
+                    (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
             ],
           ),
@@ -1206,15 +1305,11 @@ class _CategoryCard extends StatelessWidget {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  size: 28,
-                  color: color,
-                ),
+                child: Icon(icon, size: 28, color: color),
               ),
-              
+
               const SizedBox(width: 16),
-              
+
               // Category Info
               Expanded(
                 child: Column(
@@ -1249,7 +1344,7 @@ class _CategoryCard extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Actions
               PopupMenuButton<String>(
                 onSelected: (value) {
@@ -1259,28 +1354,29 @@ class _CategoryCard extends StatelessWidget {
                     onDelete();
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('Edit'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
-                        SizedBox(width: 12),
-                        Text('Hapus', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder:
+                    (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
             ],
           ),
