@@ -8,7 +8,7 @@ import '../models/address.dart';
 class ShippingService {
   static const String _baseUrl = 'https://api.rajaongkir.com/starter';
   static const String _apiKey =
-      'YOUR_RAJA_ONGKIR_API_KEY'; // Ganti dengan API key Anda
+      'Tx8rT8Lzec5688c093359dc67ZEIc60e'; // Ganti dengan API key Anda
 
   // Origin city untuk Toko Barokah (Lamongan)
   static const String _originCityId = '272'; // City ID untuk Lamongan
