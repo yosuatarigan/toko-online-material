@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:toko_online_material/address_list_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -147,13 +146,6 @@ class _ProfilePageState extends State<ProfilePage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
-    );
-  }
-
-  void _navigateToAddressList() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddressListPage()),
     );
   }
 
@@ -426,21 +418,21 @@ class _ProfilePageState extends State<ProfilePage>
           const SizedBox(width: 12),
           Expanded(
             child: _buildQuickActionCard(
-              icon: Icons.location_on_outlined, // Ganti dari favorite_outline
-              title: 'Alamat', // Ganti dari Wishlist
-              subtitle: 'Pengiriman', // Ganti dari Favorit
-              color: Colors.green.shade600, // Ganti dari red
-              onTap: () => _navigateToAddressList(), // Ganti action
+              icon: Icons.favorite_outline,
+              title: 'Wishlist',
+              subtitle: 'Favorit',
+              color: Colors.red.shade600,
+              onTap: () => _showComingSoonSnackBar('Wishlist'),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: _buildQuickActionCard(
-              icon: Icons.favorite_outline, // Pindah wishlist ke sini
-              title: 'Wishlist',
-              subtitle: 'Favorit',
-              color: Colors.red.shade600,
-              onTap: () => _showComingSoonSnackBar('Wishlist'),
+              icon: Icons.location_on_outlined,
+              title: 'Alamat',
+              subtitle: 'Pengiriman',
+              color: Colors.orange.shade600,
+              onTap: () => _showComingSoonSnackBar('Alamat Pengiriman'),
             ),
           ),
         ],
@@ -529,26 +521,40 @@ class _ProfilePageState extends State<ProfilePage>
             onTap: () => _showComingSoonSnackBar('Edit Profile'),
           ),
           _buildMenuDivider(),
-          _buildMenuItem(
-            icon: Icons.location_on_outlined,
-            title: 'Alamat Pengiriman',
-            subtitle: 'Kelola alamat pengiriman Anda',
-            onTap: _navigateToAddressList,
-          ),
-          _buildMenuDivider(),
-          _buildMenuItem(
-            icon: Icons.notifications_outlined,
-            title: 'Notifikasi',
-            subtitle: 'Pengaturan notifikasi',
-            onTap: () => _showComingSoonSnackBar('Pengaturan Notifikasi'),
-          ),
-          _buildMenuDivider(),
-          _buildMenuItem(
-            icon: Icons.security_outlined,
-            title: 'Keamanan',
-            subtitle: 'Password & keamanan akun',
-            onTap: () => _showComingSoonSnackBar('Keamanan Akun'),
-          ),
+          // _buildMenuItem(
+          //   icon: Icons.payment_outlined,
+          //   title: 'Metode Pembayaran',
+          //   subtitle: 'Kelola metode pembayaran',
+          //   onTap: () => _showComingSoonSnackBar('Metode Pembayaran'),
+          // ),
+          // _buildMenuDivider(),
+          // _buildMenuItem(
+          //   icon: Icons.notifications_outlined,
+          //   title: 'Notifikasi',
+          //   subtitle: 'Pengaturan notifikasi',
+          //   onTap: () => _showComingSoonSnackBar('Pengaturan Notifikasi'),
+          // ),
+          // _buildMenuDivider(),
+          // _buildMenuItem(
+          //   icon: Icons.security_outlined,
+          //   title: 'Keamanan',
+          //   subtitle: 'Password & keamanan akun',
+          //   onTap: () => _showComingSoonSnackBar('Keamanan Akun'),
+          // ),
+          // _buildMenuDivider(),
+          // _buildMenuItem(
+          //   icon: Icons.language_outlined,
+          //   title: 'Bahasa',
+          //   subtitle: 'Pilih bahasa aplikasi',
+          //   trailing: Text(
+          //     'Indonesia',
+          //     style: TextStyle(
+          //       fontSize: 14,
+          //       color: Colors.grey[600],
+          //     ),
+          //   ),
+          //   onTap: () => _showComingSoonSnackBar('Pengaturan Bahasa'),
+          // ),
         ],
       ),
     );

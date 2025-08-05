@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import '../models/product.dart';
 
 class CartItem {
@@ -20,9 +21,6 @@ class CartItem {
   final double variantPriceAdjustment;
   final String? variantSku; // SKU from the combination
   final Map<String, dynamic>? variantAttributes; // Attributes map from combination
-  
-  // ADD WEIGHT PROPERTY FOR SHIPPING CALCULATION
-  final double? weight; // Weight per unit in kg
 
   CartItem({
     required this.id,
@@ -41,7 +39,6 @@ class CartItem {
     this.variantPriceAdjustment = 0,
     this.variantSku,
     this.variantAttributes,
-    this.weight, // ADD THIS
   });
 
   // Get effective price (base price + variant adjustment)
@@ -49,10 +46,6 @@ class CartItem {
   
   // Get total price for this item
   double get totalPrice => effectivePrice * quantity;
-  
-  // ADD WEIGHT CALCULATION METHODS
-  double get itemWeight => weight ?? 1.0; // Default 1kg if no weight specified
-  double get totalWeight => itemWeight * quantity; // Total weight for this cart item
   
   // Get formatted price
   String get formattedPrice => 'Rp ${effectivePrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
@@ -102,7 +95,6 @@ class CartItem {
       variantPriceAdjustment: variantPriceAdjustment,
       variantSku: variantSku,
       variantAttributes: variantAttributes,
-      weight: product.weight, // ADD THIS - ambil weight dari Product
     );
   }
 
@@ -148,7 +140,6 @@ class CartItem {
       variantPriceAdjustment: combination.priceAdjustment,
       variantSku: combination.sku,
       variantAttributes: combination.attributes,
-      weight: product.weight, // ADD THIS - ambil weight dari Product
     );
   }
 
@@ -171,7 +162,6 @@ class CartItem {
       'variantPriceAdjustment': variantPriceAdjustment,
       'variantSku': variantSku,
       'variantAttributes': variantAttributes,
-      'weight': weight, // ADD THIS
     };
   }
 
@@ -196,7 +186,6 @@ class CartItem {
       variantAttributes: map['variantAttributes'] != null 
           ? Map<String, dynamic>.from(map['variantAttributes'])
           : null,
-      weight: map['weight']?.toDouble(), // ADD THIS
     );
   }
 
@@ -218,7 +207,6 @@ class CartItem {
     double? variantPriceAdjustment,
     String? variantSku,
     Map<String, dynamic>? variantAttributes,
-    double? weight, // ADD THIS
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -237,7 +225,6 @@ class CartItem {
       variantPriceAdjustment: variantPriceAdjustment ?? this.variantPriceAdjustment,
       variantSku: variantSku ?? this.variantSku,
       variantAttributes: variantAttributes ?? this.variantAttributes,
-      weight: weight ?? this.weight, // ADD THIS
     );
   }
 
@@ -297,7 +284,7 @@ class CartItem {
 
   @override
   String toString() {
-    return 'CartItem(id: $id, productName: $productName, variantName: $variantName, quantity: $quantity, price: $effectivePrice, weight: ${itemWeight}kg)';
+    return 'CartItem(id: $id, productName: $productName, variantName: $variantName, quantity: $quantity, price: $effectivePrice)';
   }
 }
 
@@ -310,7 +297,6 @@ class CartSummary {
   final double tax;
   final double discount;
   final double total;
-  final double totalWeight; // ADD TOTAL WEIGHT
 
   CartSummary({
     required this.itemCount,
@@ -319,7 +305,6 @@ class CartSummary {
     this.shipping = 0,
     this.tax = 0,
     this.discount = 0,
-    this.totalWeight = 0, // ADD THIS
   }) : total = subtotal + shipping + tax - discount;
 
   factory CartSummary.fromItems(
@@ -331,7 +316,6 @@ class CartSummary {
     final itemCount = items.length;
     final totalQuantity = items.fold(0, (sum, item) => sum + item.quantity);
     final subtotal = items.fold(0.0, (sum, item) => sum + item.totalPrice);
-    final totalWeight = items.fold(0.0, (sum, item) => sum + item.totalWeight); // ADD THIS
 
     return CartSummary(
       itemCount: itemCount,
@@ -340,7 +324,6 @@ class CartSummary {
       shipping: shipping,
       tax: tax,
       discount: discount,
-      totalWeight: totalWeight, // ADD THIS
     );
   }
 
@@ -350,15 +333,6 @@ class CartSummary {
   String get formattedTax => _formatCurrency(tax);
   String get formattedDiscount => _formatCurrency(discount);
   String get formattedTotal => _formatCurrency(total);
-  
-  // ADD FORMATTED WEIGHT
-  String get formattedWeight {
-    if (totalWeight < 1) {
-      return '${(totalWeight * 1000).round()}g';
-    } else {
-      return '${totalWeight.toStringAsFixed(1)}kg';
-    }
-  }
 
   String _formatCurrency(double amount) {
     return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(
@@ -405,7 +379,7 @@ class CartSummary {
     
     for (final item in items) {
       if (item.hasVariant && item.variantPriceAdjustment < 0) {
-        savings += (item.variantPriceAdjustment.abs() *  item.quantity);
+        savings += (item.variantPriceAdjustment.abs() * item.quantity);
       }
     }
     
@@ -417,10 +391,5 @@ class CartSummary {
   // Get summary string for display
   String getSummaryText() {
     return '$itemCount item${itemCount > 1 ? 's' : ''} • $totalQuantity qty • $formattedTotal';
-  }
-  
-  // ADD WEIGHT SUMMARY
-  String getWeightSummaryText() {
-    return '$formattedWeight total weight';
   }
 }
