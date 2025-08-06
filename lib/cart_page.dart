@@ -1,9 +1,34 @@
+// lib/pages/cart_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:toko_online_material/models/cartitem.dart';
 import 'package:toko_online_material/models/product.dart';
+import 'package:toko_online_material/models/address_model.dart';
 import 'package:toko_online_material/service/cart_service.dart';
+import 'package:toko_online_material/service/rajaongkir_service.dart';
+
+// Shipping Cost Model untuk menampung hasil perhitungan ongkir
+class ShippingCost {
+  final String courier;
+  final String service;
+  final String description;
+  final int cost;
+  final String etd;
+
+  ShippingCost({
+    required this.courier,
+    required this.service,
+    required this.description,
+    required this.cost,
+    required this.etd,
+  });
+
+  String get formattedCost => 'Rp ${cost.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  String get displayName => '$service ($etd hari)';
+}
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -13,11 +38,24 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
+  final user = FirebaseAuth.instance.currentUser;
+  
   bool _isValidating = false;
   bool _selectAll = true;
   Set<String> _selectedItems = {};
   String _selectedVoucher = '';
-  String _selectedShipping = 'regular';
+
+  // Shipping related state
+  List<Address> _userAddresses = [];
+  Address? _selectedAddress;
+  List<ShippingCost> _availableShipping = [];
+  ShippingCost? _selectedShipping;
+  bool _isLoadingAddresses = true;
+  bool _isCalculatingShipping = false;
+  String? _shippingError;
+
+  // Store location (fixed)
+  static const String _storeOrigin = 'LAMONGAN'; // Akan di-search di API
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -27,6 +65,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     super.initState();
     _initializeAnimations();
     _initializeSelectedItems();
+    _loadUserAddresses();
     _validateCartItems();
   }
 
@@ -50,7 +89,205 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       setState(() {
         _selectedItems = cartService.items.map((item) => item.id).toSet();
       });
+      // Auto calculate shipping jika ada alamat default
+      _autoSelectDefaultAddressAndCalculateShipping();
     });
+  }
+
+  Future<void> _loadUserAddresses() async {
+    if (user == null) {
+      setState(() {
+        _isLoadingAddresses = false;
+      });
+      return;
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('addresses')
+          .where('userId', isEqualTo: user!.uid)
+          .orderBy('isDefault', descending: true)
+          .get();
+
+      final addresses = snapshot.docs.map((doc) => Address.fromFirestore(doc)).toList();
+      
+      setState(() {
+        _userAddresses = addresses;
+        _isLoadingAddresses = false;
+        
+        // Auto-select default address
+        if (addresses.isNotEmpty) {
+          _selectedAddress = addresses.firstWhere(
+            (addr) => addr.isDefault,
+            orElse: () => addresses.first,
+          );
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingAddresses = false;
+      });
+      _showErrorSnackBar('Gagal memuat alamat: $e');
+    }
+  }
+
+  void _autoSelectDefaultAddressAndCalculateShipping() {
+    if (_selectedAddress != null && _selectedItems.isNotEmpty) {
+      _calculateShippingCosts();
+    }
+  }
+
+  Future<void> _calculateShippingCosts() async {
+    if (_selectedAddress == null || _selectedItems.isEmpty) {
+      setState(() {
+        _availableShipping = [];
+        _selectedShipping = null;
+        _shippingError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCalculatingShipping = true;
+      _shippingError = null;
+    });
+
+    try {
+      final cartService = Provider.of<CartService>(context, listen: false);
+      
+      // Calculate total weight dari selected items
+      double totalWeight = 0;
+      for (final item in cartService.items) {
+        if (_selectedItems.contains(item.id)) {
+          // Get weight berdasarkan variant atau default product weight
+          double itemWeight = 1000; // Default 1kg
+          
+          if (item.hasVariant) {
+            // Cari weight dari variant combination
+            final product = await _getProductById(item.productId);
+            if (product != null && product.hasVariants) {
+              final combinations = product.getVariantCombinations();
+              final matchingCombination = combinations.firstWhere(
+                (c) => c.id == item.variantId,
+                orElse: () => ProductVariantCombination(
+                  id: '',
+                  attributes: {},
+                  sku: '',
+                  stock: 0,
+                  weight: 1000,
+                ),
+              );
+              if (matchingCombination.id.isNotEmpty) {
+                itemWeight = matchingCombination.weight;
+              }
+            }
+          } else {
+            // Use product weight atau default
+            final product = await _getProductById(item.productId);
+            if (product?.weight != null) {
+              itemWeight = product!.weight! * 1000; // Convert kg to gram
+            }
+          }
+          
+          totalWeight += (itemWeight * item.quantity);
+        }
+      }
+
+      print('Total weight: ${totalWeight}g');
+
+      if (totalWeight <= 0) {
+        setState(() {
+          _shippingError = 'Tidak dapat menghitung berat paket';
+          _isCalculatingShipping = false;
+        });
+        return;
+      }
+
+      // Search origin (store location)
+      final originResults = await RajaOngkirService.searchDestinations(
+        query: _storeOrigin,
+        limit: 5,
+      );
+
+      if (originResults.isEmpty) {
+        setState(() {
+          _shippingError = 'Lokasi toko tidak ditemukan';
+          _isCalculatingShipping = false;
+        });
+        return;
+      }
+
+      // Search destination (user address)
+      final destinationResults = await RajaOngkirService.searchDestinations(
+        query: _selectedAddress!.cityName,
+        limit: 5,
+      );
+
+      if (destinationResults.isEmpty) {
+        setState(() {
+          _shippingError = 'Lokasi tujuan tidak ditemukan';
+          _isCalculatingShipping = false;
+        });
+        return;
+      }
+
+      // Calculate shipping costs
+      final shippingCosts = await RajaOngkirService.calculateCost(
+        originId: originResults.first.id,
+        destinationId: destinationResults.first.id,
+        weight: totalWeight.toInt(),
+      );
+
+      if (shippingCosts.isEmpty) {
+        setState(() {
+          _shippingError = 'Tidak ada layanan pengiriman tersedia';
+          _isCalculatingShipping = false;
+        });
+        return;
+      }
+
+      // Convert ke ShippingCost model dan sort by price
+      final convertedShipping = shippingCosts.map((cost) => ShippingCost(
+        courier: cost.courier,
+        service: cost.service,
+        description: cost.description,
+        cost: cost.cost,
+        etd: cost.etd,
+      )).toList();
+
+      convertedShipping.sort((a, b) => a.cost.compareTo(b.cost));
+
+      setState(() {
+        _availableShipping = convertedShipping;
+        _selectedShipping = convertedShipping.first; // Auto select cheapest
+        _isCalculatingShipping = false;
+      });
+
+    } catch (e) {
+      setState(() {
+        _shippingError = 'Gagal menghitung ongkos kirim: $e';
+        _isCalculatingShipping = false;
+        _availableShipping = [];
+        _selectedShipping = null;
+      });
+      print('Shipping calculation error: $e');
+    }
+  }
+
+  Future<Product?> _getProductById(String productId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('products')
+          .doc(productId)
+          .get();
+      
+      if (doc.exists) {
+        return Product.fromFirestore(doc);
+      }
+    } catch (e) {
+      print('Error getting product: $e');
+    }
+    return null;
   }
 
   // Validate cart items in background
@@ -140,6 +377,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         _selectedItems.clear();
       }
     });
+    // Recalculate shipping when selection changes
+    _calculateShippingCosts();
   }
 
   void _toggleItemSelection(String itemId) {
@@ -153,6 +392,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       final cartService = Provider.of<CartService>(context, listen: false);
       _selectAll = _selectedItems.length == cartService.items.length;
     });
+    // Recalculate shipping when selection changes
+    _calculateShippingCosts();
   }
 
   double _calculateSelectedTotal(CartService cartService) {
@@ -169,6 +410,28 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     return _selectedItems.length;
   }
 
+  void _showAddressModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildAddressModal(),
+    );
+  }
+
+  void _showShippingModal() {
+    if (_availableShipping.isEmpty) {
+      _showErrorSnackBar('Pilih alamat terlebih dahulu untuk melihat opsi pengiriman');
+      return;
+    }
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildShippingModal(),
+    );
+  }
+
   void _showVoucherModal() {
     showModalBottomSheet(
       context: context,
@@ -178,17 +441,19 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  void _showShippingModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildShippingModal(),
-    );
-  }
-
   Future<void> _checkout(CartService cartService) async {
     if (_selectedItems.isEmpty) {
       _showErrorSnackBar('Pilih minimal 1 produk untuk checkout');
+      return;
+    }
+
+    if (_selectedAddress == null) {
+      _showErrorSnackBar('Pilih alamat pengiriman terlebih dahulu');
+      return;
+    }
+
+    if (_selectedShipping == null) {
+      _showErrorSnackBar('Pilih metode pengiriman terlebih dahulu');
       return;
     }
 
@@ -200,7 +465,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     try {
       final issues = await cartService.validateCart();
       final selectedItemIssues = issues.where((issue) {
-        // Filter issues for selected items only
         return _selectedItems.any((itemId) {
           final item = cartService.items.firstWhere((i) => i.id == itemId, 
               orElse: () => CartItem.fromProduct(Product(
@@ -218,7 +482,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       }
 
       final selectedTotal = _calculateSelectedTotal(cartService);
-      _showCheckoutDialog(selectedTotal);
+      final shippingCost = _selectedShipping!.cost.toDouble();
+      final total = selectedTotal + shippingCost - (_selectedVoucher.isNotEmpty ? 10000 : 0);
+      
+      _showCheckoutDialog(selectedTotal, shippingCost, total);
     } catch (e) {
       _showErrorSnackBar('Gagal memvalidasi keranjang: $e');
     } finally {
@@ -228,7 +495,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     }
   }
 
-  void _showCheckoutDialog(double total) {
+  void _showCheckoutDialog(double subtotal, double shipping, double total) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -244,43 +511,107 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               child: const Icon(Icons.payment, color: Color(0xFF2E7D32), size: 24),
             ),
             const SizedBox(width: 12),
-            const Text('Konfirmasi Checkout', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Expanded(
+              child: Text('Konfirmasi Checkout', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ],
         ),
         content: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildSummaryRow('Total Item', '${_getSelectedItemsCount()} produk'),
-              const SizedBox(height: 8),
-              _buildSummaryRow('Total Pembayaran', _formatCurrency(total), isTotal: true),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
+          constraints: const BoxConstraints(maxHeight: 400),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildSummaryRow('Total Item', '${_getSelectedItemsCount()} produk'),
+                      const SizedBox(height: 8),
+                      _buildSummaryRow('Subtotal', _formatCurrency(subtotal)),
+                      const SizedBox(height: 8),
+                      _buildSummaryRow('Ongkos Kirim', _formatCurrency(shipping)),
+                      if (_selectedVoucher.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _buildSummaryRow('Diskon', '-Rp 10.000', color: Colors.green),
+                      ],
+                      const Divider(height: 20),
+                      _buildSummaryRow('Total Pembayaran', _formatCurrency(total), isTotal: true),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Pesanan akan diproses oleh Toko Barokah',
-                        style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                const SizedBox(height: 16),
+                
+                // Shipping info
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.local_shipping, color: Colors.blue.shade700, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pengiriman',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_selectedShipping!.courier.toUpperCase()} ${_selectedShipping!.service}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        'Ke: ${_selectedAddress!.cityName}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        'Estimasi: ${_selectedShipping!.etd} hari',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange.shade700, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Pesanan akan diproses dari Toko Barokah, Laren - Lamongan',
+                          style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -301,7 +632,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, String value, {bool isTotal = false, Color? color}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -318,7 +649,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           style: TextStyle(
             fontSize: isTotal ? 18 : 14,
             fontWeight: FontWeight.bold,
-            color: isTotal ? const Color(0xFF2E7D32) : const Color(0xFF2D3748),
+            color: color ?? (isTotal ? const Color(0xFF2E7D32) : const Color(0xFF2D3748)),
           ),
         ),
       ],
@@ -327,6 +658,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
   Future<void> _processCheckout() async {
     _showSuccessSnackBar('Checkout berhasil! Pesanan Anda sedang diproses');
+    
+    // TODO: Implement real checkout process
+    // - Save order to database
+    // - Clear selected items from cart
+    // - Navigate to order confirmation page
   }
 
   void _showErrorSnackBar(String message) {
@@ -391,6 +727,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   child: ListView(
                     children: [
                       _buildCartItems(cartService),
+                      _buildShippingSection(),
                       _buildOrderSummary(cartService),
                       const SizedBox(height: 100), // Space for bottom bar
                     ],
@@ -626,6 +963,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   _selectAll = false;
                 });
                 _showSuccessSnackBar('${itemsToRemove.length} item dihapus');
+                _calculateShippingCosts(); // Recalculate after removal
               },
               child: Text(
                 'Hapus (${_selectedItems.length})',
@@ -660,6 +998,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               onSelectionChanged: () => _toggleItemSelection(item.id),
               onQuantityChanged: (newQuantity) {
                 cartService.updateQuantity(item.id, newQuantity);
+                // Recalculate shipping when quantity changes
+                _calculateShippingCosts();
               },
               onRemove: () {
                 cartService.removeItem(item.id);
@@ -667,6 +1007,8 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                   _selectedItems.remove(item.id);
                 });
                 _showSuccessSnackBar('${item.displayName} dihapus dari keranjang');
+                // Recalculate shipping after removal
+                _calculateShippingCosts();
               },
             ),
           );
@@ -675,10 +1017,181 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildShippingSection() {
+    return Container(
+      color: Colors.white,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_shipping, color: Colors.blue[600], size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Pengiriman',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2D3748),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Address selection
+          GestureDetector(
+            onTap: _showAddressModal,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.grey[600], size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Alamat Pengiriman',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _selectedAddress != null
+                              ? '${_selectedAddress!.label} - ${_selectedAddress!.cityName}'
+                              : _isLoadingAddresses
+                                  ? 'Memuat alamat...'
+                                  : 'Pilih alamat pengiriman',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _selectedAddress != null
+                                ? const Color(0xFF2D3748)
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Shipping method selection
+          GestureDetector(
+            onTap: _showShippingModal,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_shipping_outlined, 
+                    color: Colors.grey[600], 
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Metode Pengiriman',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (_isCalculatingShipping) ...[
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Menghitung ongkos kirim...',
+                                style: TextStyle(fontSize: 12, color: Colors.blue),
+                              ),
+                            ],
+                          ),
+                        ] else if (_shippingError != null) ...[
+                          Text(
+                            _shippingError!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ] else if (_selectedShipping != null) ...[
+                          Text(
+                            '${_selectedShipping!.courier.toUpperCase()} ${_selectedShipping!.service}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF2D3748),
+                            ),
+                          ),
+                          Text(
+                            '${_selectedShipping!.formattedCost} • ${_selectedShipping!.etd} hari',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ] else ...[
+                          Text(
+                            _selectedAddress != null
+                                ? 'Pilih metode pengiriman'
+                                : 'Pilih alamat terlebih dahulu',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrderSummary(CartService cartService) {
     final selectedTotal = _calculateSelectedTotal(cartService);
-    final shippingCost = _getShippingCostValue();
-    final total = selectedTotal + shippingCost;
+    final shippingCost = _selectedShipping?.cost.toDouble() ?? 0;
+    final discount = _selectedVoucher.isNotEmpty ? 10000 : 0;
+    final total = selectedTotal + shippingCost - discount;
 
     return Container(
       color: Colors.white,
@@ -697,13 +1210,22 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           _buildSummaryItem('Subtotal Produk', _formatCurrency(selectedTotal)),
-          _buildSummaryItem('Biaya Pengiriman', _getShippingPrice()),
+          _buildSummaryItem(
+            'Biaya Pengiriman', 
+            _selectedShipping != null 
+                ? _selectedShipping!.formattedCost
+                : _isCalculatingShipping 
+                    ? 'Menghitung...'
+                    : _shippingError != null
+                        ? 'Error'
+                        : 'Pilih pengiriman',
+          ),
           if (_selectedVoucher.isNotEmpty)
             _buildSummaryItem('Voucher Diskon', '-Rp 10.000', color: Colors.green),
           const Divider(height: 24),
           _buildSummaryItem(
             'Total Pembayaran',
-            _formatCurrency(total - (_selectedVoucher.isNotEmpty ? 10000 : 0)),
+            _formatCurrency(total),
             isTotal: true,
           ),
         ],
@@ -738,28 +1260,17 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  double _getShippingCostValue() {
-    switch (_selectedShipping) {
-      case 'regular': return 15000;
-      case 'express': return 25000;
-      case 'same_day': return 35000;
-      default: return 15000;
-    }
-  }
-
-  String _getShippingPrice() {
-    switch (_selectedShipping) {
-      case 'regular': return 'Rp 15.000';
-      case 'express': return 'Rp 25.000';
-      case 'same_day': return 'Rp 35.000';
-      default: return 'Rp 15.000';
-    }
-  }
-
   Widget _buildBottomCheckoutBar(CartService cartService) {
     final selectedTotal = _calculateSelectedTotal(cartService);
-    final shippingCost = _getShippingCostValue();
-    final total = selectedTotal + shippingCost - (_selectedVoucher.isNotEmpty ? 10000 : 0);
+    final shippingCost = _selectedShipping?.cost.toDouble() ?? 0;
+    final discount = _selectedVoucher.isNotEmpty ? 10000 : 0;
+    final total = selectedTotal + shippingCost - discount;
+
+    final canCheckout = _selectedItems.isNotEmpty && 
+                       _selectedAddress != null && 
+                       _selectedShipping != null && 
+                       !_isValidating &&
+                       !_isCalculatingShipping;
 
     return Container(
       decoration: BoxDecoration(
@@ -798,9 +1309,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _selectedItems.isEmpty || _isValidating 
-                      ? null 
-                      : () => _checkout(cartService),
+                  onPressed: canCheckout ? () => _checkout(cartService) : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E7D32),
                     disabledBackgroundColor: Colors.grey.shade300,
@@ -808,7 +1317,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
-                  child: _isValidating 
+                  child: _isValidating || _isCalculatingShipping
                       ? const SizedBox(
                           width: 20, 
                           height: 20, 
@@ -819,7 +1328,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: _selectedItems.isEmpty ? Colors.grey.shade600 : Colors.white,
+                            color: canCheckout ? Colors.white : Colors.grey.shade600,
                           ),
                         ),
                 ),
@@ -827,6 +1336,227 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Address Modal
+  Widget _buildAddressModal() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (context, scrollController) {
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Pilih Alamat Pengiriman',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _userAddresses.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Belum ada alamat tersimpan.\nTambahkan alamat di halaman profil.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: _userAddresses.length,
+                        itemBuilder: (context, index) {
+                          final address = _userAddresses[index];
+                          final isSelected = _selectedAddress?.id == address.id;
+                          
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade300,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListTile(
+                              title: Row(
+                                children: [
+                                  Text(
+                                    address.label,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  if (address.isDefault) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'UTAMA',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.orange.shade700,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(address.recipientName),
+                                  Text(
+                                    address.fullAddress,
+                                    style: const TextStyle(fontSize: 12),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                              trailing: isSelected 
+                                  ? const Icon(Icons.check_circle, color: Color(0xFF2E7D32)) 
+                                  : null,
+                              onTap: () {
+                                setState(() {
+                                  _selectedAddress = address;
+                                });
+                                Navigator.pop(context);
+                                _calculateShippingCosts();
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // Shipping Modal
+  Widget _buildShippingModal() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              children: [
+                const Text('Pilih Metode Pengiriman', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
+            ),
+          ),
+          if (_availableShipping.isEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Text(
+                'Tidak ada layanan pengiriman tersedia',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          ] else ...[
+            ..._availableShipping.map((shipping) => _buildShippingOption(shipping)).toList(),
+          ],
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShippingOption(ShippingCost shipping) {
+    final isSelected = _selectedShipping?.courier == shipping.courier && 
+                      _selectedShipping?.service == shipping.service;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade300,
+          width: isSelected ? 2 : 1,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.local_shipping, color: Colors.blue, size: 20),
+        ),
+        title: Text(
+          '${shipping.courier.toUpperCase()} ${shipping.service}',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              shipping.description,
+              style: const TextStyle(fontSize: 12),
+            ),
+            Text(
+              'Estimasi: ${shipping.etd} hari',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              shipping.formattedCost,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2D3748)),
+            ),
+            if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 16),
+          ],
+        ),
+        onTap: () {
+          setState(() {
+            _selectedShipping = shipping;
+          });
+          Navigator.pop(context);
+        },
       ),
     );
   }
@@ -914,79 +1644,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         onTap: () {
           setState(() {
             _selectedVoucher = isSelected ? '' : code;
-          });
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  Widget _buildShippingModal() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Row(
-              children: [
-                const Text('Pilih Pengiriman', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-              ],
-            ),
-          ),
-          _buildShippingOption('regular', 'Reguler', '2-3 hari', 'Rp 15.000'),
-          _buildShippingOption('express', 'Express', '1-2 hari', 'Rp 25.000'),
-          _buildShippingOption('same_day', 'Same Day', 'Hari ini', 'Rp 35.000'),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShippingOption(String value, String title, String estimate, String price) {
-    final isSelected = _selectedShipping == value;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade300,
-          width: isSelected ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.local_shipping, color: Colors.blue, size: 20),
-        ),
-        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-        subtitle: Text('Estimasi: $estimate', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(price, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2D3748))),
-            if (isSelected) const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 16),
-          ],
-        ),
-        onTap: () {
-          setState(() {
-            _selectedShipping = value;
           });
           Navigator.pop(context);
         },
