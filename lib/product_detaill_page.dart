@@ -1,3 +1,4 @@
+// lib/pages/product_detail_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -35,11 +36,12 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   List<Product> _relatedProducts = [];
   bool _isLoading = true;
 
-  // Enhanced Variant state
+  // Enhanced Variant state with weight support
   ProductVariantCombination? _selectedVariantCombination;
   Map<String, String> _selectedAttributes = {}; // attributeId: optionValue
   double _currentPrice = 0;
   int _availableStock = 0;
+  double _currentWeight = 1000; // Default weight in grams
 
   @override
   void initState() {
@@ -72,7 +74,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
   }
 
   void _initializeProductData() {
-    // Initialize price and stock based on variants
+    // Initialize price, stock, and weight based on variants
     if (widget.product.hasVariants) {
       final combinations = widget.product.getVariantCombinations();
       if (combinations.isNotEmpty) {
@@ -85,25 +87,29 @@ class _ProductDetailPageState extends State<ProductDetailPage>
           _selectedVariantCombination = combinations.first;
         }
         _selectedAttributes = Map.from(_selectedVariantCombination!.attributes);
-        _updatePriceAndStock();
+        _updatePriceStockAndWeight();
       } else {
         _currentPrice = widget.product.price;
         _availableStock = widget.product.stock;
+        _currentWeight = widget.product.weight ?? 1000;
       }
     } else {
       _currentPrice = widget.product.price;
       _availableStock = widget.product.stock;
+      _currentWeight = widget.product.weight ?? 1000;
     }
   }
 
-  void _updatePriceAndStock() {
+  void _updatePriceStockAndWeight() {
     if (_selectedVariantCombination != null) {
       _currentPrice =
           widget.product.price + _selectedVariantCombination!.priceAdjustment;
       _availableStock = _selectedVariantCombination!.stock;
+      _currentWeight = _selectedVariantCombination!.weight;
     } else {
       _currentPrice = widget.product.price;
       _availableStock = widget.product.totalStock;
+      _currentWeight = widget.product.weight ?? 1000;
     }
 
     // Reset quantity if it exceeds available stock
@@ -116,7 +122,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
     setState(() {
       _selectedVariantCombination = combination;
       _selectedAttributes = Map.from(combination.attributes);
-      _updatePriceAndStock();
+      _updatePriceStockAndWeight();
     });
   }
 
@@ -135,16 +141,18 @@ class _ProductDetailPageState extends State<ProductDetailPage>
               attributes: {},
               sku: '',
               stock: 0,
+              weight: 1000, // Default weight
             ),
       );
 
       if (matchingCombination.id.isNotEmpty) {
         _selectedVariantCombination = matchingCombination;
-        _updatePriceAndStock();
+        _updatePriceStockAndWeight();
       } else {
         _selectedVariantCombination = null;
         _currentPrice = widget.product.price;
         _availableStock = 0;
+        _currentWeight = widget.product.weight ?? 1000;
       }
     });
   }
@@ -172,6 +180,19 @@ class _ProductDetailPageState extends State<ProductDetailPage>
       }
     }
     return parts.join(' - ');
+  }
+
+  String _formatWeight(double weightInGrams) {
+    if (weightInGrams >= 1000) {
+      final kg = weightInGrams / 1000;
+      if (kg == kg.toInt()) {
+        return '${kg.toInt()} kg';
+      } else {
+        return '${kg.toStringAsFixed(1)} kg';
+      }
+    } else {
+      return '${weightInGrams.toInt()} g';
+    }
   }
 
   void _startAnimations() {
@@ -794,20 +815,36 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             ],
           ),
 
-          // Weight info
-          if (widget.product.weight != null) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.scale_outlined, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 6),
-                Text(
-                  'Berat: ${widget.product.weight} kg',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          // Weight info - updated to show variant-specific weight
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(Icons.scale_outlined, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                'Berat: ${_formatWeight(_currentWeight)}',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              if (widget.product.hasVariants && _selectedVariantCombination != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'varian',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ],
-            ),
-          ],
+            ],
+          ),
         ],
       ),
     );
@@ -943,7 +980,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
             );
           }).toList(),
 
-          // Selected combination info
+          // Selected combination info with weight
           if (_selectedVariantCombination != null) ...[
             Container(
               padding: const EdgeInsets.all(16),
@@ -973,7 +1010,7 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -999,9 +1036,25 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       ),
                     ],
                   ),
-                  Text(
-                    'SKU: ${_selectedVariantCombination!.sku}',
-                    style: TextStyle(fontSize: 11, color: Colors.green[600]),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'SKU: ${_selectedVariantCombination!.sku}',
+                        style: TextStyle(fontSize: 11, color: Colors.green[600]),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(Icons.scale_outlined, size: 12, color: Colors.green[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatWeight(_currentWeight),
+                            style: TextStyle(fontSize: 11, color: Colors.green[600]),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1115,6 +1168,15 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                  // Show total weight
+                  const SizedBox(height: 2),
+                  Text(
+                    'Berat: ${_formatWeight(_currentWeight * _quantity)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
                     ),
                   ),
                 ],
@@ -1248,8 +1310,16 @@ class _ProductDetailPageState extends State<ProductDetailPage>
                   _buildSpecRow('Kategori', widget.product.categoryName),
                   _buildSpecRow('SKU', widget.product.sku),
                   _buildSpecRow('Satuan', widget.product.unit),
-                  if (widget.product.weight != null)
-                    _buildSpecRow('Berat', '${widget.product.weight} kg'),
+                  
+                  // Weight info - enhanced for variants
+                  if (widget.product.hasVariants) ...[
+                    if (_selectedVariantCombination != null)
+                      _buildSpecRow('Berat Varian', _formatWeight(_currentWeight))
+                    else
+                      _buildSpecRow('Rentang Berat', _getWeightRange()),
+                  ] else if (widget.product.weight != null)
+                    _buildSpecRow('Berat', _formatWeight(widget.product.weight!)),
+                    
                   if (widget.product.hasVariants) ...[
                     _buildSpecRow(
                       'Jumlah Varian',
@@ -1277,6 +1347,27 @@ class _ProductDetailPageState extends State<ProductDetailPage>
         ],
       ),
     );
+  }
+
+  String _getWeightRange() {
+    if (!widget.product.hasVariants) {
+      return _formatWeight(widget.product.weight ?? 1000);
+    }
+    
+    final combinations = widget.product.getVariantCombinations();
+    if (combinations.isEmpty) {
+      return _formatWeight(widget.product.weight ?? 1000);
+    }
+    
+    final weights = combinations.map((c) => c.weight).toList()..sort();
+    final minWeight = weights.first;
+    final maxWeight = weights.last;
+    
+    if (minWeight == maxWeight) {
+      return _formatWeight(minWeight);
+    } else {
+      return '${_formatWeight(minWeight)} - ${_formatWeight(maxWeight)}';
+    }
   }
 
   Widget _buildSpecRow(String label, String value) {
