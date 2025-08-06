@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:toko_online_material/address_setting_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -164,7 +165,6 @@ class _ProfilePageState extends State<ProfilePage>
                 _buildProfileHeader(),
                 _buildQuickActions(),
                 _buildMenuSection(),
-                // _buildCustomerServiceSection(),
                 _buildStoreInfoSection(),
                 _buildFooter(),
                 const SizedBox(height: 100), // Space for bottom nav
@@ -244,17 +244,6 @@ class _ProfilePageState extends State<ProfilePage>
                           ),
                         ],
                       ),
-                      // const Spacer(),
-                      // Container(
-                      //   decoration: BoxDecoration(
-                      //     color: Colors.white.withOpacity(0.2),
-                      //     borderRadius: BorderRadius.circular(12),
-                      //   ),
-                      //   child: IconButton(
-                      //     icon: const Icon(Icons.settings, color: Colors.white),
-                      //     onPressed: () => _showComingSoonSnackBar('Pengaturan'),
-                      //   ),
-                      // ),
                     ],
                   ),
                 ],
@@ -432,7 +421,14 @@ class _ProfilePageState extends State<ProfilePage>
               title: 'Alamat',
               subtitle: 'Pengiriman',
               color: Colors.orange.shade600,
-              onTap: () => _showComingSoonSnackBar('Alamat Pengiriman'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddressSettingsPage(),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -521,115 +517,18 @@ class _ProfilePageState extends State<ProfilePage>
             onTap: () => _showComingSoonSnackBar('Edit Profile'),
           ),
           _buildMenuDivider(),
-          // _buildMenuItem(
-          //   icon: Icons.payment_outlined,
-          //   title: 'Metode Pembayaran',
-          //   subtitle: 'Kelola metode pembayaran',
-          //   onTap: () => _showComingSoonSnackBar('Metode Pembayaran'),
-          // ),
-          // _buildMenuDivider(),
-          // _buildMenuItem(
-          //   icon: Icons.notifications_outlined,
-          //   title: 'Notifikasi',
-          //   subtitle: 'Pengaturan notifikasi',
-          //   onTap: () => _showComingSoonSnackBar('Pengaturan Notifikasi'),
-          // ),
-          // _buildMenuDivider(),
-          // _buildMenuItem(
-          //   icon: Icons.security_outlined,
-          //   title: 'Keamanan',
-          //   subtitle: 'Password & keamanan akun',
-          //   onTap: () => _showComingSoonSnackBar('Keamanan Akun'),
-          // ),
-          // _buildMenuDivider(),
-          // _buildMenuItem(
-          //   icon: Icons.language_outlined,
-          //   title: 'Bahasa',
-          //   subtitle: 'Pilih bahasa aplikasi',
-          //   trailing: Text(
-          //     'Indonesia',
-          //     style: TextStyle(
-          //       fontSize: 14,
-          //       color: Colors.grey[600],
-          //     ),
-          //   ),
-          //   onTap: () => _showComingSoonSnackBar('Pengaturan Bahasa'),
-          // ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCustomerServiceSection() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.support_agent,
-                    color: Colors.green.shade700,
-                    size: 20,
-                  ),
+          _buildMenuItem(
+            icon: Icons.location_on_outlined,
+            title: 'Alamat Pengiriman',
+            subtitle: 'Kelola alamat pengiriman',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddressSettingsPage(),
                 ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Bantuan & Dukungan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D3748),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _buildMenuItem(
-            icon: Icons.help_outline,
-            title: 'Pusat Bantuan',
-            subtitle: 'FAQ dan panduan',
-            onTap: () => _showComingSoonSnackBar('Pusat Bantuan'),
-          ),
-          _buildMenuDivider(),
-          _buildMenuItem(
-            icon: Icons.chat_outlined,
-            title: 'Live Chat',
-            subtitle: 'Chat dengan customer service',
-            onTap: () => _showComingSoonSnackBar('Live Chat'),
-          ),
-          _buildMenuDivider(),
-          _buildMenuItem(
-            icon: Icons.phone_outlined,
-            title: 'Hubungi Kami',
-            subtitle: 'Kontak Toko Barokah',
-            onTap: () => _showStoreContactDialog(),
-          ),
-          _buildMenuDivider(),
-          _buildMenuItem(
-            icon: Icons.rate_review_outlined,
-            title: 'Beri Rating',
-            subtitle: 'Rating & review aplikasi',
-            onTap: () => _showComingSoonSnackBar('Rating Aplikasi'),
+              );
+            },
           ),
         ],
       ),
@@ -655,7 +554,20 @@ class _ProfilePageState extends State<ProfilePage>
           children: [
             Row(
               children: [
-                Image.asset('assets/logo.png', height: 40, width: 40),
+                // Gunakan placeholder untuk logo
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.store,
+                    color: Colors.green.shade700,
+                    size: 24,
+                  ),
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -831,89 +743,5 @@ class _ProfilePageState extends State<ProfilePage>
 
   Widget _buildMenuDivider() {
     return Divider(height: 1, color: Colors.grey.shade200, indent: 58);
-  }
-
-  void _showStoreContactDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Image.asset('assets/logo.png', height: 40, width: 40),
-                const SizedBox(width: 12),
-                const Text(
-                  'Kontak Toko Barokah',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildContactItem(
-                  Icons.location_on,
-                  'Alamat',
-                  'Jl. Tanggul, Sawah, Centini\nKec. Laren, Lamongan, Jawa Timur',
-                ),
-                const SizedBox(height: 16),
-                _buildContactItem(
-                  Icons.access_time,
-                  'Jam Buka',
-                  'Senin-Sabtu: 07:00-17:00\nMinggu: 08:00-15:00',
-                ),
-                const SizedBox(height: 16),
-                _buildContactItem(
-                  Icons.email,
-                  'Email',
-                  'toko.barokah.material@gmail.com',
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Tutup'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Widget _buildContactItem(IconData icon, String title, String content) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.green.shade600, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                content,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                  height: 1.3,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
