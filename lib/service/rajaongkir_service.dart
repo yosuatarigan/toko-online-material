@@ -5,12 +5,67 @@ import 'package:toko_online_material/models/address_model.dart';
 
 class RajaOngkirService {
   static const String _baseUrl = 'https://rajaongkir.komerce.id/api/v1';
-  static const String _apiKey = 'fcehljgBbdd10044e905d7aedEqf4ZFw'; // Ganti dengan API Key Anda
+  static const String _apiKey = 'fcehIjgBbdd10044e905d7aedEqf4ZFw';
   
   static const Map<String, String> _headers = {
     'key': _apiKey,
-    'Accept': 'application/json',
+    'Content-Type': 'application/json',
   };
+
+  // New method: Calculate shipping cost directly with IDs
+  static Future<List<ShippingCost>> calculateCostWithIds({
+    required String originId,
+    required String destinationId,
+    required int weight,
+    String? courier,
+  }) async {
+    try {
+      // Prepare form-data request using MultipartRequest
+      final uri = Uri.parse('${_baseUrl}/calculate/domestic-cost');
+      final request = http.MultipartRequest('POST', uri);
+      
+      // Add headers
+      request.headers['key'] = _apiKey;
+      
+      // Add form fields
+      request.fields['origin'] = originId;
+      request.fields['destination'] = destinationId;
+      request.fields['weight'] = weight.toString();
+      
+      // Add courier filter if specified, otherwise use multiple couriers
+      if (courier != null && courier.isNotEmpty) {
+        request.fields['courier'] = courier;
+      } else {
+        // Use multiple couriers for better options (sesuai dengan Postman)
+        request.fields['courier'] = 'jne:tiki:pos:jnt:sicepat:ninja:anteraja';
+      }
+
+      print('Sending form-data request to: $uri');
+      print('Request fields: ${request.fields}');
+      
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 20));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        
+        if (data['meta']['status'] == 'success') {
+          final List<dynamic> results = data['data'];
+          return results.map((json) => ShippingCost.fromApiResponse(json)).toList();
+        } else {
+          throw Exception(data['meta']['message'] ?? 'Failed to calculate shipping cost');
+        }
+      } else {
+        throw Exception('HTTP ${response.statusCode}: Failed to calculate shipping cost');
+      }
+    } catch (e) {
+      print('Error calculating shipping cost: $e');
+      throw Exception('Error calculating shipping cost: $e');
+    }
+  }
 
   // Get list of provinces
   static Future<List<Province>> getProvinces() async {
@@ -37,13 +92,13 @@ class RajaOngkirService {
     }
   }
 
-  // Search destinations by province name
+  // Search destinations by province name (new approach)
   static Future<List<City>> getCitiesByProvinceName(String provinceName) async {
     try {
       final uri = Uri.parse('$_baseUrl/destination/domestic-destination').replace(
         queryParameters: {
           'search': provinceName,
-          'limit': '200',
+          'limit': '200', // Get more results
           'offset': '0',
         },
       );
@@ -57,6 +112,7 @@ class RajaOngkirService {
         if (data['meta']['status'] == 'success') {
           final List<dynamic> results = data['data'];
           
+          // Group by city to avoid duplicates
           Map<String, City> uniqueCities = {};
           
           for (var item in results) {
@@ -86,7 +142,7 @@ class RajaOngkirService {
       final uri = Uri.parse('$_baseUrl/destination/domestic-destination').replace(
         queryParameters: {
           'search': cityName,
-          'limit': '500',
+          'limit': '500', // Get more results for subdistricts
           'offset': '0',
         },
       );
@@ -100,9 +156,11 @@ class RajaOngkirService {
         if (data['meta']['status'] == 'success') {
           final List<dynamic> results = data['data'];
           
+          // Filter and group by subdistrict to avoid duplicates
           Map<String, Subdistrict> uniqueSubdistricts = {};
           
           for (var item in results) {
+            // Only include exact city matches
             if (item['city_name'].toString().toLowerCase() == cityName.toLowerCase()) {
               final subdistrictName = item['subdistrict_name'];
               final districtName = item['district_name'];
@@ -125,7 +183,7 @@ class RajaOngkirService {
       }
     } catch (e) {
       print('Subdistrict API failed: $e');
-      return [];
+      return []; // Return empty list if fails, subdistrict is optional
     }
   }
 
@@ -164,66 +222,40 @@ class RajaOngkirService {
     }
   }
 
-  // FIXED: Calculate shipping cost dengan format yang benar
-  static Future<List<ShippingCost>> calculateCost({
+  // Legacy method: Calculate shipping cost (for backward compatibility)
+  static Future<List<ShippingCostLegacy>> calculateCost({
     required String originId,
     required String destinationId,
     required int weight,
-    List<String>? couriers,
+    String? courier,
   }) async {
     try {
-      print('Calculating cost with:');
-      print('Origin: $originId');
-      print('Destination: $destinationId');
-      print('Weight: ${weight}g');
-      
-      // Default couriers jika tidak disediakan
-      final courierList = couriers ?? ['jne', 'tiki', 'pos', 'jnt', 'sicepat', 'ninja', 'anteraja'];
-      final courierString = courierList.join(':');
-      
-      print('Couriers: $courierString');
-
-      // FIXED: Menggunakan form-data seperti yang berhasil di Postman
       final body = {
         'origin': originId,
         'destination': destinationId,
-        'weight': weight.toString(),
-        'courier': courierString,
+        'weight': weight,
+        if (courier != null) 'courier': courier,
       };
 
-      // FIXED: Menggunakan endpoint yang benar dan content-type form-urlencoded
       final response = await http.post(
-        Uri.parse('$_baseUrl/calculate/domestic-cost'),
-        headers: {
-          'key': _apiKey,
-          'Accept': 'application/json',
-          // PENTING: Tidak pakai Content-Type JSON, biarkan http package handle form data
-        },
-        body: body, // Kirim sebagai form data, bukan JSON
-      ).timeout(const Duration(seconds: 30));
-
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
+        Uri.parse('$_baseUrl/cost/domestic'),
+        headers: _headers,
+        body: json.encode(body),
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         
         if (data['meta']['status'] == 'success') {
-          final List<dynamic> results = data['data'] ?? [];
-          
-          if (results.isEmpty) {
-            throw Exception('Tidak ada layanan pengiriman tersedia');
-          }
-          
-          return results.map((json) => ShippingCost.fromJsonV2(json)).toList();
+          final List<dynamic> results = data['data'];
+          return results.map((json) => ShippingCostLegacy.fromJsonV2(json)).toList();
         } else {
-          throw Exception(data['meta']['message'] ?? 'Unknown error');
+          throw Exception(data['meta']['message']);
         }
       } else {
-        throw Exception('Failed to calculate cost: ${response.statusCode} - ${response.reasonPhrase}');
+        throw Exception('Failed to calculate cost: ${response.statusCode}');
       }
     } catch (e) {
-      print('Calculate cost error: $e');
       throw Exception('Error calculating cost: $e');
     }
   }
@@ -269,7 +301,6 @@ class RajaOngkirService {
       'BOGOR': '16111',
       'MALANG': '65111',
       'SOLO': '57111',
-      'LAMONGAN': '62200', // Added store location
     };
 
     final upperCityName = cityName.toUpperCase();
@@ -285,6 +316,73 @@ class RajaOngkirService {
   static String? extractPostalCode(Destination destination) {
     return destination.zipCode;
   }
+}
+
+// Updated Shipping Cost Model (matches API response structure)
+class ShippingCost {
+  final String name;
+  final String code;
+  final String service;
+  final String description;
+  final int cost;
+  final String etd;
+
+  ShippingCost({
+    required this.name,
+    required this.code,
+    required this.service,
+    required this.description,
+    required this.cost,
+    required this.etd,
+  });
+
+  // Factory method for new API response structure
+  factory ShippingCost.fromApiResponse(Map<String, dynamic> json) {
+    return ShippingCost(
+      name: json['name'] ?? '',
+      code: json['code'] ?? '',
+      service: json['service'] ?? '',
+      description: json['description'] ?? '',
+      cost: (json['cost'] is int) ? json['cost'] : int.tryParse(json['cost'].toString()) ?? 0,
+      etd: json['etd'] ?? '',
+    );
+  }
+
+  String get formattedCost => 'Rp ${cost.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  String get displayName => '$service${etd.isNotEmpty ? ' ($etd)' : ''}';
+  String get courierDisplayName => name;
+
+  @override
+  String toString() => '$name - $service: $formattedCost';
+}
+
+// Legacy Shipping Cost Model (for backward compatibility)
+class ShippingCostLegacy {
+  final String courier;
+  final String service;
+  final String description;
+  final int cost;
+  final String etd;
+
+  ShippingCostLegacy({
+    required this.courier,
+    required this.service,
+    required this.description,
+    required this.cost,
+    required this.etd,
+  });
+
+  factory ShippingCostLegacy.fromJsonV2(Map<String, dynamic> json) {
+    return ShippingCostLegacy(
+      courier: json['courier'] ?? '',
+      service: json['service'] ?? '',
+      description: json['description'] ?? '',
+      cost: json['cost'] ?? 0,
+      etd: json['etd'] ?? '',
+    );
+  }
+
+  String get formattedCost => 'Rp ${cost.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
 }
 
 // Updated Models for V2 API
@@ -321,47 +419,4 @@ class Destination {
 
   String get fullAddress => label;
   String get shortAddress => '$subdistrictName, $districtName, $cityName';
-}
-
-class ShippingCost {
-  final String name; // Nama lengkap courier
-  final String code; // Code courier
-  final String service; // Jenis layanan
-  final String description; // Deskripsi layanan
-  final int cost; // Biaya dalam Rupiah
-  final String etd; // Estimasi waktu pengiriman
-
-  ShippingCost({
-    required this.name,
-    required this.code,
-    required this.service,
-    required this.description,
-    required this.cost,
-    required this.etd,
-  });
-
-  factory ShippingCost.fromJsonV2(Map<String, dynamic> json) {
-    return ShippingCost(
-      name: json['name'] ?? '',
-      code: json['code'] ?? '',
-      service: json['service'] ?? '',
-      description: json['description'] ?? '',
-      cost: (json['cost'] is int) ? json['cost'] : int.tryParse(json['cost'].toString()) ?? 0,
-      etd: json['etd']?.toString() ?? '',
-    );
-  }
-
-  // Getter untuk kompatibilitas dengan kode yang ada
-  String get courier => code;
-  
-  String get formattedCost => 'Rp ${cost.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
-  
-  String get displayName {
-    if (etd.isNotEmpty && etd != '0') {
-      return '$service ($etd hari)';
-    }
-    return service;
-  }
-
-  String get fullDisplayName => '${name.toUpperCase()} $service';
 }
