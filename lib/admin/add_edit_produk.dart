@@ -109,7 +109,7 @@ class _AddEditProductPageState extends State<AddEditProductPage>
     _priceController.text = product.price.toString();
     _stockController.text = product.stock.toString();
     _skuController.text = product.sku;
-    _weightController.text = product.weight?.toString() ?? '';
+    _weightController.text = product.weight?.toString() ?? '1000';
     _selectedCategoryId = product.categoryId;
     _selectedCategoryName = product.categoryName;
     _selectedUnit = product.unit;
@@ -279,6 +279,9 @@ class _AddEditProductPageState extends State<AddEditProductPage>
     List<List<String>> combinations = _generateCombinations(allOptions);
     List<ProductVariantCombination> newCombinations = [];
 
+    // Get default weight from base product or use 1000g
+    final defaultWeight = double.tryParse(_weightController.text) ?? 1000;
+
     for (var combo in combinations) {
       Map<String, String> attributes = {};
       for (int i = 0; i < combo.length; i++) {
@@ -293,6 +296,7 @@ class _AddEditProductPageState extends State<AddEditProductPage>
           attributes: {},
           sku: '',
           stock: 0,
+          weight: defaultWeight, // Set default weight
         ),
       );
 
@@ -308,6 +312,7 @@ class _AddEditProductPageState extends State<AddEditProductPage>
             attributes: attributes,
             sku: '$baseSku-${newCombinations.length + 1}',
             stock: 0,
+            weight: defaultWeight, // Set default weight 1000g
           ),
         );
       }
@@ -810,7 +815,7 @@ class _AddEditProductPageState extends State<AddEditProductPage>
     );
   }
 
-  // Enhanced Variants Tab
+  // Enhanced Variants Tab dengan Weight Support
   Widget _buildVariantsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -904,7 +909,7 @@ class _AddEditProductPageState extends State<AddEditProductPage>
               }).toList(),
             ],
 
-            // Combinations
+            // Combinations dengan Weight Input
             if (_variantCombinations.isNotEmpty) ...[
               const SizedBox(height: 20),
               Row(
@@ -930,7 +935,7 @@ class _AddEditProductPageState extends State<AddEditProductPage>
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ExpansionTile(
                     title: Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('SKU: ${combo.sku} | Stok: ${combo.stock}'),
+                    subtitle: Text('SKU: ${combo.sku} | Stok: ${combo.stock} | Berat: ${combo.formattedWeight}'),
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(16),
@@ -938,7 +943,10 @@ class _AddEditProductPageState extends State<AddEditProductPage>
                           children: [
                             TextFormField(
                               initialValue: combo.sku,
-                              decoration: const InputDecoration(labelText: 'SKU'),
+                              decoration: const InputDecoration(
+                                labelText: 'SKU',
+                                border: OutlineInputBorder(),
+                              ),
                               onChanged: (value) => combo.sku = value,
                             ),
                             const SizedBox(height: 12),
@@ -947,7 +955,10 @@ class _AddEditProductPageState extends State<AddEditProductPage>
                                 Expanded(
                                   child: TextFormField(
                                     initialValue: combo.priceAdjustment.toString(),
-                                    decoration: const InputDecoration(labelText: 'Penyesuaian Harga'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Penyesuaian Harga (Rp)',
+                                      border: OutlineInputBorder(),
+                                    ),
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) => combo.priceAdjustment = double.tryParse(value) ?? 0,
                                   ),
@@ -956,12 +967,27 @@ class _AddEditProductPageState extends State<AddEditProductPage>
                                 Expanded(
                                   child: TextFormField(
                                     initialValue: combo.stock.toString(),
-                                    decoration: const InputDecoration(labelText: 'Stok'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Stok',
+                                      border: OutlineInputBorder(),
+                                    ),
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) => combo.stock = int.tryParse(value) ?? 0,
                                   ),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              initialValue: combo.weight.toString(),
+                              decoration: const InputDecoration(
+                                labelText: 'Berat (gram)',
+                                border: OutlineInputBorder(),
+                                suffixText: 'g',
+                                helperText: 'Default: 1000g (1kg)',
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) => combo.weight = double.tryParse(value) ?? 1000,
                             ),
                           ],
                         ),
@@ -1008,23 +1034,25 @@ class _AddEditProductPageState extends State<AddEditProductPage>
             validator: (value) => value?.trim().isEmpty == true ? 'SKU harus diisi' : null,
           ),
           const SizedBox(height: 20),
-          TextFormField(
-            controller: _weightController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Berat (kg)',
-              prefixIcon: const Icon(Icons.scale_outlined),
-              suffixText: 'kg',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          if (!_hasVariants)
+            TextFormField(
+              controller: _weightController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Berat (gram)',
+                prefixIcon: const Icon(Icons.scale_outlined),
+                suffixText: 'g',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                helperText: 'Default: 1000g (1kg)',
+              ),
+              validator: (value) {
+                if (value?.isNotEmpty == true &&
+                    (double.tryParse(value!) == null || double.parse(value) < 0)) {
+                  return 'Berat tidak valid';
+                }
+                return null;
+              },
             ),
-            validator: (value) {
-              if (value?.isNotEmpty == true &&
-                  (double.tryParse(value!) == null || double.parse(value) < 0)) {
-                return 'Berat tidak valid';
-              }
-              return null;
-            },
-          ),
         ],
       ),
     );

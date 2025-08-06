@@ -1085,6 +1085,7 @@ Widget _buildComingSoonContent(String feature) {
 }
 
 // Product Card Component
+// Product Card Component - Updated dengan Weight Display
 class _ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onEdit;
@@ -1110,8 +1111,8 @@ class _ProductCard extends StatelessWidget {
             children: [
               // Product Image
               Container(
-                width: 60,
-                height: 60,
+                width: 70,
+                height: 70,
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(8),
@@ -1161,17 +1162,48 @@ class _ProductCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
+
+                    // Price and Weight Row
                     Row(
                       children: [
                         Text(
-                          'Rp ${product.price.toStringAsFixed(0)}',
+                          product.hasVariants
+                              ? product.priceRange
+                              : product.formattedPrice,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF2E7D32),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 1,
+                          height: 12,
+                          color: Colors.grey[300],
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.scale_outlined,
+                          size: 14,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          product.weightRange,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Status and Variants Row
+                    Row(
+                      children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -1187,13 +1219,63 @@ class _ProductCard extends StatelessWidget {
                           child: Text(
                             product.isActive ? 'Aktif' : 'Nonaktif',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color:
                                   product.isActive
                                       ? Colors.green[700]
                                       : Colors.red[700],
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (product.hasVariants)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${product.getVariantCombinations().length} Varian',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: product.stockStatusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.inventory_outlined,
+                                size: 12,
+                                color: product.stockStatusColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${product.totalStock}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: product.stockStatusColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

@@ -26,13 +26,14 @@ class VariantAttribute {
   );
 }
 
-// Product Variant Combination Model
+// Product Variant Combination Model - Updated dengan weight
 class ProductVariantCombination {
   String id;
   Map<String, String> attributes; // attributeId: optionValue
   String sku;
   double priceAdjustment;
   int stock;
+  double weight; // Berat dalam gram
   bool isActive;
   String? imageUrl;
 
@@ -42,6 +43,7 @@ class ProductVariantCombination {
     required this.sku,
     this.priceAdjustment = 0,
     required this.stock,
+    this.weight = 1000, // Default 1kg = 1000 gram
     this.isActive = true,
     this.imageUrl,
   });
@@ -58,12 +60,22 @@ class ProductVariantCombination {
     )}';
   }
 
+  String get formattedWeight {
+    if (weight >= 1000) {
+      final kg = weight / 1000;
+      return kg % 1 == 0 ? '${kg.toInt()} kg' : '${kg.toStringAsFixed(1)} kg';
+    } else {
+      return '${weight.toInt()} g';
+    }
+  }
+
   Map<String, dynamic> toMap() => {
     'id': id,
     'attributes': attributes,
     'sku': sku,
     'priceAdjustment': priceAdjustment,
     'stock': stock,
+    'weight': weight,
     'isActive': isActive,
     'imageUrl': imageUrl,
   };
@@ -74,6 +86,7 @@ class ProductVariantCombination {
     sku: map['sku'] ?? '',
     priceAdjustment: (map['priceAdjustment'] ?? 0).toDouble(),
     stock: map['stock'] ?? 0,
+    weight: (map['weight'] ?? 1000).toDouble(),
     isActive: map['isActive'] ?? true,
     imageUrl: map['imageUrl'],
   );
@@ -187,6 +200,49 @@ class Product {
     );
 
     return 'Rp $minFormatted - $maxFormatted';
+  }
+
+  String get weightRange {
+    if (!hasVariants) {
+      if (weight == null) return '-';
+      if (weight! >= 1000) {
+        final kg = weight! / 1000;
+        return kg % 1 == 0 ? '${kg.toInt()} kg' : '${kg.toStringAsFixed(1)} kg';
+      } else {
+        return '${weight!.toInt()} g';
+      }
+    }
+
+    final combinations = getVariantCombinations();
+    if (combinations.isEmpty) return '-';
+
+    double minWeight = combinations.first.weight;
+    double maxWeight = combinations.first.weight;
+
+    for (var combination in combinations) {
+      if (combination.weight < minWeight) minWeight = combination.weight;
+      if (combination.weight > maxWeight) maxWeight = combination.weight;
+    }
+
+    if (minWeight == maxWeight) {
+      if (minWeight >= 1000) {
+        final kg = minWeight / 1000;
+        return kg % 1 == 0 ? '${kg.toInt()} kg' : '${kg.toStringAsFixed(1)} kg';
+      } else {
+        return '${minWeight.toInt()} g';
+      }
+    }
+
+    String formatWeight(double w) {
+      if (w >= 1000) {
+        final kg = w / 1000;
+        return kg % 1 == 0 ? '${kg.toInt()} kg' : '${kg.toStringAsFixed(1)} kg';
+      } else {
+        return '${w.toInt()} g';
+      }
+    }
+
+    return '${formatWeight(minWeight)} - ${formatWeight(maxWeight)}';
   }
 
   // Helper methods
