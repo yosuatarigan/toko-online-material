@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:toko_online_material/admin/add_edit_kateogory.dart';
 import 'package:toko_online_material/admin/add_edit_produk.dart';
 import 'package:toko_online_material/admin/admin_chat_list_page.dart';
+import 'package:toko_online_material/admin/admin_order_page.dart';
 import 'package:toko_online_material/admin/store_delevery_setting.dart';
 import 'package:toko_online_material/service/chat_service.dart';
 import 'package:toko_online_material/service/store_delevery_store.dart';
@@ -33,7 +34,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       _ProductsTab(),
       _CategoriesTab(),
       const AdminChatListPage(),
-      _OrdersTab(), // Enhanced dengan store delivery
+      const AdminOrdersPage(),
       _ReportsTab(),
     ]);
   }
@@ -98,49 +99,50 @@ class _AdminHomePageState extends State<AdminHomePage> {
                 _showComingSoon(value);
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 12),
-                    Text('Profile Admin'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'store_delivery_settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.local_shipping_outlined),
-                    SizedBox(width: 12),
-                    Text('Pengaturan Pengiriman'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined),
-                    SizedBox(width: 12),
-                    Text('Pengaturan Lainnya'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Keluar', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(
+                    value: 'profile',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline),
+                        SizedBox(width: 12),
+                        Text('Profile Admin'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'store_delivery_settings',
+                    child: Row(
+                      children: [
+                        Icon(Icons.local_shipping_outlined),
+                        SizedBox(width: 12),
+                        Text('Pengaturan Pengiriman'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'settings',
+                    child: Row(
+                      children: [
+                        Icon(Icons.settings_outlined),
+                        SizedBox(width: 12),
+                        Text('Pengaturan Lainnya'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'logout',
+                    child: Row(
+                      children: [
+                        Icon(Icons.logout, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text('Keluar', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
           ),
         ],
       ),
@@ -391,74 +393,6 @@ class _DashboardTab extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Quick Actions untuk Store Delivery
-          // Row(
-          //   children: [
-          //     const Text(
-          //       'Aksi Cepat',
-          //       style: TextStyle(
-          //         fontSize: 20,
-          //         fontWeight: FontWeight.bold,
-          //         color: Color(0xFF2D3748),
-          //       ),
-          //     ),
-          //     const Spacer(),
-          //     TextButton.icon(
-          //       onPressed: () {
-          //         Navigator.push(
-          //           context,
-          //           MaterialPageRoute(
-          //             builder: (context) => const StoreDeliveryDashboard(),
-          //           ),
-          //         );
-          //       },
-          //       icon: const Icon(Icons.local_shipping, size: 16),
-          //       label: const Text('Lihat Semua'),
-          //       style: TextButton.styleFrom(
-          //         foregroundColor: const Color(0xFF2E7D32),
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          // const SizedBox(height: 16),
-
-          // Store Delivery Quick Actions
-          // Row(
-          //   children: [
-          //     Expanded(
-          //       child: _buildQuickActionCard(
-          //         'Dashboard Pengiriman',
-          //         Icons.local_shipping,
-          //         const Color(0xFF2E7D32),
-          //         () {
-          //           Navigator.push(
-          //             context,
-          //             MaterialPageRoute(
-          //               builder: (context) => const StoreDeliveryDashboard(),
-          //             ),
-          //           );
-          //         },
-          //       ),
-          //     ),
-          //     const SizedBox(width: 12),
-          //     Expanded(
-          //       child: _buildQuickActionCard(
-          //         'Pengaturan Pengiriman',
-          //         Icons.settings,
-          //         Colors.blue,
-          //         () {
-          //           Navigator.push(
-          //             context,
-          //             MaterialPageRoute(
-          //               builder: (context) => const StoreDeliverySettingsPage(),
-          //             ),
-          //           );
-          //         },
-          //       ),
-          //     ),
-          //   ],
-          // ),
-
           const SizedBox(height: 24),
 
           // Enhanced Stats dengan Store Delivery
@@ -473,13 +407,23 @@ class _DashboardTab extends StatelessWidget {
           const SizedBox(height: 16),
 
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('products').snapshots(),
+            stream:
+                FirebaseFirestore.instance.collection('products').snapshots(),
             builder: (context, productSnapshot) {
               return StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('categories').snapshots(),
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('categories')
+                        .snapshots(),
                 builder: (context, categorySnapshot) {
-                  final productCount = productSnapshot.hasData ? productSnapshot.data!.docs.length : 0;
-                  final categoryCount = categorySnapshot.hasData ? categorySnapshot.data!.docs.length : 0;
+                  final productCount =
+                      productSnapshot.hasData
+                          ? productSnapshot.data!.docs.length
+                          : 0;
+                  final categoryCount =
+                      categorySnapshot.hasData
+                          ? categorySnapshot.data!.docs.length
+                          : 0;
 
                   return Column(
                     children: [
@@ -545,19 +489,6 @@ class _DashboardTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-
-          // Store Delivery Stats Preview
-          // FutureBuilder<StoreDeliveryStats>(
-          //   future: StoreDeliveryService.getDeliveryStats(),
-          //   builder: (context, snapshot) {
-          //     if (snapshot.connectionState == ConnectionState.waiting) {
-          //       return const Center(child: CircularProgressIndicator());
-          //     }
-
-          //     final stats = snapshot.data ?? StoreDeliveryStats.empty();
-          //     return _buildStoreDeliveryPreview(context, stats);
-          //   },
-          // ),
         ],
       ),
     );
@@ -617,91 +548,12 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
-  // Widget _buildStoreDeliveryPreview(BuildContext context, StoreDeliveryStats stats) {
-  //   return Container(
-  //     padding: const EdgeInsets.all(20),
-  //     decoration: BoxDecoration(
-  //       gradient: LinearGradient(
-  //         colors: [Colors.green.shade50, Colors.white],
-  //         begin: Alignment.topLeft,
-  //         end: Alignment.bottomRight,
-  //       ),
-  //       borderRadius: BorderRadius.circular(16),
-  //       border: Border.all(color: Colors.green.shade200),
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Row(
-  //           children: [
-  //             Container(
-  //               padding: const EdgeInsets.all(8),
-  //               decoration: BoxDecoration(
-  //                 color: const Color(0xFF2E7D32),
-  //                 borderRadius: BorderRadius.circular(8),
-  //               ),
-  //               child: const Icon(Icons.local_shipping, color: Colors.white, size: 20),
-  //             ),
-  //             const SizedBox(width: 12),
-  //             const Text(
-  //               'Pengiriman Toko - 30 Hari Terakhir',
-  //               style: TextStyle(
-  //                 fontSize: 16,
-  //                 fontWeight: FontWeight.bold,
-  //                 color: Color(0xFF2D3748),
-  //               ),
-  //             ),
-  //             const Spacer(),
-  //             TextButton(
-  //               onPressed: () {
-  //                 Navigator.push(
-  //                   context,
-  //                   MaterialPageRoute(
-  //                     builder: (context) => const StoreDeliveryDashboard(),
-  //                   ),
-  //                 );
-  //               },
-  //               child: const Text('Detail'),
-  //             ),
-  //           ],
-  //         ),
-  //         const SizedBox(height: 16),
-  //         Row(
-  //           children: [
-  //             Expanded(
-  //               child: _buildMiniStatCard(
-  //                 'Total Pesanan',
-  //                 '${stats.totalOrders}',
-  //                 Icons.shopping_cart,
-  //                 Colors.blue,
-  //               ),
-  //             ),
-  //             const SizedBox(width: 12),
-  //             Expanded(
-  //               child: _buildMiniStatCard(
-  //                 'Terkirim',
-  //                 '${stats.deliveredOrders}',
-  //                 Icons.check_circle,
-  //                 Colors.green,
-  //               ),
-  //             ),
-  //             const SizedBox(width: 12),
-  //             Expanded(
-  //               child: _buildMiniStatCard(
-  //                 'Sukses Rate',
-  //                 '${stats.successRate.toStringAsFixed(0)}%',
-  //                 Icons.trending_up,
-  //                 Colors.purple,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  Widget _buildMiniStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMiniStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -723,10 +575,7 @@ class _DashboardTab extends StatelessWidget {
           ),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-            ),
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
         ],
@@ -792,7 +641,8 @@ class _OrdersTab extends StatefulWidget {
   State<_OrdersTab> createState() => _OrdersTabState();
 }
 
-class _OrdersTabState extends State<_OrdersTab> with SingleTickerProviderStateMixin {
+class _OrdersTabState extends State<_OrdersTab>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -840,8 +690,10 @@ class _OrdersTabState extends State<_OrdersTab> with SingleTickerProviderStateMi
   }
 
   Widget _buildAllOrdersView() {
-    return _buildComingSoonContent('Semua Pesanan', 
-      'Kelola semua pesanan dari berbagai metode pengiriman');
+    return _buildComingSoonContent(
+      'Semua Pesanan',
+      'Kelola semua pesanan dari berbagai metode pengiriman',
+    );
   }
 
   Widget _buildStoreDeliveryView() {
@@ -1021,11 +873,18 @@ class _OrdersTabState extends State<_OrdersTab> with SingleTickerProviderStateMi
   }
 
   Widget _buildCourierOrdersView() {
-    return _buildComingSoonContent('Pesanan Kurir Ekspedisi', 
-      'Kelola pesanan yang dikirim melalui kurir ekspedisi (JNE, TIKI, dll)');
+    return _buildComingSoonContent(
+      'Pesanan Kurir Ekspedisi',
+      'Kelola pesanan yang dikirim melalui kurir ekspedisi (JNE, TIKI, dll)',
+    );
   }
 
-  Widget _buildQuickStatsCard(String title, String value, IconData icon, Color color) {
+  Widget _buildQuickStatsCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1063,10 +922,7 @@ class _OrdersTabState extends State<_OrdersTab> with SingleTickerProviderStateMi
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Colors.grey,
-            ),
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1103,7 +959,9 @@ class _ProductsTabState extends State<_ProductsTab> {
 
     return products.where((product) {
       return product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          product.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          product.description.toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          );
     }).toList();
   }
 
@@ -1137,29 +995,30 @@ class _ProductsTabState extends State<_ProductsTab> {
   void _showDeleteConfirmation(Product product) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Produk'),
-        content: Text(
-          'Apakah Anda yakin ingin menghapus produk "${product.name}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteProduct(product);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: Colors.white),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Hapus Produk'),
+            content: Text(
+              'Apakah Anda yakin ingin menghapus produk "${product.name}"?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteProduct(product);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Hapus',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -1179,17 +1038,18 @@ class _ProductsTabState extends State<_ProductsTab> {
                   decoration: InputDecoration(
                     hintText: 'Cari produk...',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                            : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1266,9 +1126,10 @@ class _ProductsTabState extends State<_ProductsTab> {
                 );
               }
 
-              final products = snapshot.data!.docs
-                  .map((doc) => Product.fromFirestore(doc))
-                  .toList();
+              final products =
+                  snapshot.data!.docs
+                      .map((doc) => Product.fromFirestore(doc))
+                      .toList();
 
               final filteredProducts = _filterProducts(products);
 
@@ -1291,7 +1152,8 @@ class _ProductsTabState extends State<_ProductsTab> {
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: filteredProducts.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder:
+                    (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final product = filteredProducts[index];
                   return _ProductCard(
@@ -1300,7 +1162,8 @@ class _ProductsTabState extends State<_ProductsTab> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => AddEditProductPage(product: product),
+                          builder:
+                              (context) => AddEditProductPage(product: product),
                         ),
                       );
                     },
@@ -1344,17 +1207,20 @@ class _CategoriesTabState extends State<_CategoriesTab> {
 
     return categories.where((category) {
       return category.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          category.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          category.description.toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          );
     }).toList();
   }
 
   Future<void> _deleteCategory(Category category) async {
     // Check if category is being used by products
-    final productsQuery = await FirebaseFirestore.instance
-        .collection('products')
-        .where('categoryId', isEqualTo: category.id)
-        .limit(1)
-        .get();
+    final productsQuery =
+        await FirebaseFirestore.instance
+            .collection('products')
+            .where('categoryId', isEqualTo: category.id)
+            .limit(1)
+            .get();
 
     if (productsQuery.docs.isNotEmpty) {
       if (mounted) {
@@ -1399,29 +1265,30 @@ class _CategoriesTabState extends State<_CategoriesTab> {
   void _showDeleteConfirmation(Category category) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Hapus Kategori'),
-        content: Text(
-          'Apakah Anda yakin ingin menghapus kategori "${category.name}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteCategory(category);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: Colors.white),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Hapus Kategori'),
+            content: Text(
+              'Apakah Anda yakin ingin menghapus kategori "${category.name}"?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteCategory(category);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Hapus',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -1441,17 +1308,18 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                   decoration: InputDecoration(
                     hintText: 'Cari kategori...',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
-                            },
-                          )
-                        : null,
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                            : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1528,9 +1396,10 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                 );
               }
 
-              final categories = snapshot.data!.docs
-                  .map((doc) => Category.fromFirestore(doc))
-                  .toList();
+              final categories =
+                  snapshot.data!.docs
+                      .map((doc) => Category.fromFirestore(doc))
+                      .toList();
 
               final filteredCategories = _filterCategories(categories);
 
@@ -1553,7 +1422,8 @@ class _CategoriesTabState extends State<_CategoriesTab> {
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
                 itemCount: filteredCategories.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder:
+                    (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final category = filteredCategories[index];
                   return _CategoryCard(
@@ -1562,8 +1432,9 @@ class _CategoriesTabState extends State<_CategoriesTab> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              AddEditCategoryPage(category: category),
+                          builder:
+                              (context) =>
+                                  AddEditCategoryPage(category: category),
                         ),
                       );
                     },
@@ -1583,8 +1454,10 @@ class _CategoriesTabState extends State<_CategoriesTab> {
 class _ReportsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return _buildComingSoonContent('Laporan & Analitik',
-      'Lihat laporan penjualan, analitik pengiriman, dan performa toko');
+    return _buildComingSoonContent(
+      'Laporan & Analitik',
+      'Lihat laporan penjualan, analitik pengiriman, dan performa toko',
+    );
   }
 }
 
@@ -1633,7 +1506,11 @@ Widget _buildComingSoonContent(String feature, [String? description]) {
         Text(
           description ?? 'Sedang dalam pengembangan\nakan segera hadir!',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16, color: Color(0xFF718096), height: 1.5),
+          style: const TextStyle(
+            fontSize: 16,
+            color: Color(0xFF718096),
+            height: 1.5,
+          ),
         ),
         const SizedBox(height: 24),
         Container(
@@ -1688,22 +1565,23 @@ class _ProductCard extends StatelessWidget {
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: product.imageUrls.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          product.imageUrls.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.image_not_supported);
-                          },
+                child:
+                    product.imageUrls.isNotEmpty
+                        ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            product.imageUrls.first,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.image_not_supported);
+                            },
+                          ),
+                        )
+                        : const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 30,
+                          color: Colors.grey,
                         ),
-                      )
-                    : const Icon(
-                        Icons.inventory_2_outlined,
-                        size: 30,
-                        color: Colors.grey,
-                      ),
               ),
 
               const SizedBox(width: 16),
@@ -1737,7 +1615,9 @@ class _ProductCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          product.hasVariants ? product.priceRange : product.formattedPrice,
+                          product.hasVariants
+                              ? product.priceRange
+                              : product.formattedPrice,
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1778,9 +1658,10 @@ class _ProductCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: product.isActive
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.red.withOpacity(0.1),
+                            color:
+                                product.isActive
+                                    ? Colors.green.withOpacity(0.1)
+                                    : Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1788,7 +1669,10 @@ class _ProductCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: product.isActive ? Colors.green[700] : Colors.red[700],
+                              color:
+                                  product.isActive
+                                      ? Colors.green[700]
+                                      : Colors.red[700],
                             ),
                           ),
                         ),
@@ -1857,28 +1741,29 @@ class _ProductCard extends StatelessWidget {
                     onDelete();
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('Edit'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
-                        SizedBox(width: 12),
-                        Text('Hapus', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder:
+                    (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
             ],
           ),
@@ -1999,28 +1884,29 @@ class _CategoryCard extends StatelessWidget {
                     onDelete();
                   }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 20),
-                        SizedBox(width: 12),
-                        Text('Edit'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 20, color: Colors.red),
-                        SizedBox(width: 12),
-                        Text('Hapus', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                itemBuilder:
+                    (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
               ),
             ],
           ),

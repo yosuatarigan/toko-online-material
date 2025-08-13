@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:toko_online_material/chat_list_page.dart';
 import 'package:toko_online_material/service/cart_service.dart';
 import 'package:toko_online_material/service/chat_service.dart';
+import 'package:toko_online_material/user_order_page.dart';
 import 'beranda_page.dart';
 import 'cart_page.dart';
 import 'profile_page.dart';
@@ -92,13 +93,7 @@ class _MainNavigationPageState extends State<MainNavigationPage>
           const BerandaPage(),
           const CartPage(),
           const ChatListPage(), // Ganti placeholder dengan ChatListPage
-          _buildPlaceholderPage(
-            icon: Icons.assignment_outlined,
-            title: 'Pesanan',
-            subtitle: 'Fitur riwayat pesanan akan segera hadir',
-            description: 'Lihat status dan riwayat pembelian material Anda',
-            color: Colors.orange.shade600,
-          ),
+          const UserOrdersPage(),
           const ProfilePage(),
         ],
       ),

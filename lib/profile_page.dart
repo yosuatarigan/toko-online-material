@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:toko_online_material/address_setting_page.dart';
 import 'package:toko_online_material/store_info_widget.dart';
-import 'package:toko_online_material/widget/delevery_tracking_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -403,16 +402,6 @@ class _ProfilePageState extends State<ProfilePage>
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
         children: [
-          Expanded(
-            child: _buildQuickActionCard(
-              icon: Icons.local_shipping_outlined,
-              title: 'Lacak Pesanan',
-              subtitle: 'Lihat status',
-              color: Colors.blue.shade600,
-              onTap: () => _showOrderTrackingDialog(),
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: _buildQuickActionCard(
               icon: Icons.favorite_outline,
@@ -824,59 +813,6 @@ class _ProfilePageState extends State<ProfilePage>
   }
 
   // Dialog methods
-  void _showOrderTrackingDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text('Lacak Pesanan'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Masukkan nomor pesanan Anda:'),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'TB2025010101',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    prefixIcon: const Icon(Icons.search),
-                  ),
-                  onSubmitted: (orderId) {
-                    Navigator.pop(context);
-                    if (orderId.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => DeliveryTrackingPage(
-                                orderId: orderId,
-                                orderType: 'store_delivery',
-                              ),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Batal'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Lacak'),
-              ),
-            ],
-          ),
-    );
-  }
 
   // void _showNotificationsPage() async {
   //   if (user != null) {
