@@ -1,4 +1,4 @@
-// lib/pages/cart_page.dart (Modified with Store Delivery)
+// lib/pages/cart_page.dart (Modified to always show store delivery)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -10,7 +10,7 @@ import 'package:toko_online_material/models/product.dart';
 import 'package:toko_online_material/models/address_model.dart';
 import 'package:toko_online_material/service/cart_service.dart';
 import 'package:toko_online_material/service/rajaongkir_service.dart';
-import 'package:toko_online_material/service/distance_service.dart'; // Import baru
+import 'package:toko_online_material/service/distance_service.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -36,7 +36,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   bool _isCalculatingShipping = false;
   String? _shippingError;
 
-  // Store delivery state - BARU
+  // Store delivery state - UPDATED
   DistanceResult? _distanceResult;
   StoreDeliveryOption? _storeDeliveryOption;
   bool _isCalculatingDistance = false;
@@ -122,38 +122,40 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     }
   }
 
-  // FUNGSI BARU - Menghitung jarak dan opsi pengiriman toko
+  // FUNGSI DIUPDATE - Selalu buat opsi pengiriman toko
   Future<void> _calculateDistanceAndStoreDelivery() async {
-    if (_selectedAddress == null) {
-      setState(() {
-        _distanceResult = null;
-        _storeDeliveryOption = null;
-      });
-      return;
-    }
-
     setState(() {
       _isCalculatingDistance = true;
     });
 
     try {
-      final distance = await DistanceService.calculateDistanceToAddress(
-        _selectedAddress!.fullAddress,
-        _selectedAddress!.cityName,
-      );
+      if (_selectedAddress != null) {
+        final distance = await DistanceService.calculateDistanceToAddress(
+          _selectedAddress!.fullAddress,
+          _selectedAddress!.cityName,
+        );
 
-      setState(() {
-        _distanceResult = distance;
-        _storeDeliveryOption = distance != null ? StoreDeliveryOption.create(distance) : null;
-        _isCalculatingDistance = false;
-      });
+        setState(() {
+          _distanceResult = distance;
+          // Selalu buat opsi pengiriman toko, biarkan StoreDeliveryOption menentukan availability
+          _storeDeliveryOption = StoreDeliveryOption.createAlways(distance, _selectedAddress!.cityName);
+          _isCalculatingDistance = false;
+        });
 
-      print('Distance calculated: ${distance?.toString()}');
-      print('Store delivery available: ${_storeDeliveryOption?.isAvailable}');
+        print('Distance calculated: ${distance?.toString()}');
+        print('Store delivery available: ${_storeDeliveryOption?.isAvailable}');
+      } else {
+        // Jika tidak ada alamat, buat opsi default untuk menunjukkan fitur
+        setState(() {
+          _distanceResult = null;
+          _storeDeliveryOption = StoreDeliveryOption.createDefault();
+          _isCalculatingDistance = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _distanceResult = null;
-        _storeDeliveryOption = null;
+        _storeDeliveryOption = StoreDeliveryOption.createDefault();
         _isCalculatingDistance = false;
       });
       print('Error calculating distance: $e');
@@ -167,10 +169,12 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         _selectedShipping = null;
         _shippingError = null;
       });
+      // Tetap hitung jarak untuk opsi toko
+      await _calculateDistanceAndStoreDelivery();
       return;
     }
 
-    // Hitung jarak dan opsi toko terlebih dahulu - BARU
+    // Hitung jarak dan opsi toko terlebih dahulu
     await _calculateDistanceAndStoreDelivery();
 
     // Validasi subdistrictId
@@ -258,7 +262,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       setState(() {
         _availableShipping = validShippingCosts;
         
-        // Auto select store delivery jika tersedia dan lebih murah - BARU
+        // Auto select store delivery jika tersedia dan lebih murah
         if (_storeDeliveryOption?.isAvailable == true) {
           final cheapestRegular = validShippingCosts.first.cost;
           if (_storeDeliveryOption!.cost <= cheapestRegular) {
@@ -282,7 +286,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     }
   }
 
-  // FUNGSI BARU - Convert store delivery ke ShippingCost format
+  // Convert store delivery ke ShippingCost format
   ShippingCost _convertStoreDeliveryToShippingCost(StoreDeliveryOption storeOption) {
     return ShippingCost(
       name: 'Toko Barokah',
@@ -310,7 +314,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     return null;
   }
 
-  // Validate cart items in background
   Future<void> _validateCartItems() async {
     final cartService = Provider.of<CartService>(context, listen: false);
     if (cartService.isEmpty) return;
@@ -437,13 +440,17 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
+  // DIUPDATE - Selalu tampilkan opsi pengiriman toko
   void _showShippingModal() {
-    // Gabungkan opsi reguler dan toko - MODIFIKASI
     List<Widget> shippingOptions = [];
 
-    // Tambahkan opsi pengiriman toko jika tersedia
-    if (_storeDeliveryOption?.isAvailable == true) {
+    // Selalu tambahkan opsi pengiriman toko (bahkan jika tidak tersedia/disabled)
+    if (_storeDeliveryOption != null) {
       shippingOptions.add(_buildStoreDeliveryOption(_storeDeliveryOption!));
+    }
+
+    // Tambahkan divider jika ada opsi toko dan ekspedisi
+    if (_storeDeliveryOption != null && _availableShipping.isNotEmpty) {
       shippingOptions.add(const Divider(height: 1));
     }
 
@@ -468,6 +475,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
       }
     }
 
+    // Jika tidak ada opsi sama sekali, tampilkan pesan
     if (shippingOptions.isEmpty) {
       _showErrorSnackBar('Pilih alamat terlebih dahulu untuk melihat opsi pengiriman');
       return;
@@ -517,63 +525,99 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // WIDGET BARU - Store delivery option di modal
+  // WIDGET DIUPDATE - Handle disabled state untuk store delivery
   Widget _buildStoreDeliveryOption(StoreDeliveryOption option) {
-    final isSelected = _selectedShipping?.code == 'STORE';
+    final isSelected = _selectedShipping?.code == 'STORE' && option.isAvailable;
+    final isDisabled = !option.isAvailable;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isSelected 
-            ? [const Color(0xFF2E7D32).withOpacity(0.1), Colors.green.shade50]
-            : [Colors.white, Colors.white],
+          colors: isDisabled
+            ? [Colors.grey.shade100, Colors.grey.shade200]
+            : isSelected 
+              ? [const Color(0xFF2E7D32).withOpacity(0.1), Colors.green.shade50]
+              : [Colors.white, Colors.white],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         border: Border.all(
-          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade300,
+          color: isDisabled
+            ? Colors.grey.shade300
+            : isSelected 
+              ? const Color(0xFF2E7D32) 
+              : Colors.grey.shade300,
           width: isSelected ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
+        enabled: !isDisabled,
         leading: Container(
           width: 50,
           height: 50,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [const Color(0xFF2E7D32), Colors.green.shade400],
+              colors: isDisabled
+                ? [Colors.grey.shade400, Colors.grey.shade500]
+                : [const Color(0xFF2E7D32), Colors.green.shade400],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.store, color: Colors.white, size: 24),
+          child: Icon(
+            Icons.store, 
+            color: Colors.white, 
+            size: 24,
+          ),
         ),
         title: Row(
           children: [
             Text(
               option.name,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 15, 
+                fontWeight: FontWeight.w600,
+                color: isDisabled ? Colors.grey.shade600 : null,
+              ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.green.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'REKOMENDASI',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green.shade700,
+            if (!isDisabled) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'REKOMENDASI',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                  ),
                 ),
               ),
-            ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'TIDAK TERSEDIA',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
         subtitle: Column(
@@ -582,31 +626,70 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
             const SizedBox(height: 4),
             Text(
               option.description,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(
+                fontSize: 12, 
+                color: isDisabled ? Colors.grey.shade500 : Colors.grey[600],
+              ),
             ),
             const SizedBox(height: 6),
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 14, color: Colors.blue[600]),
-                const SizedBox(width: 4),
-                Text(
-                  option.distance.distanceText,
-                  style: TextStyle(fontSize: 12, color: Colors.blue[600]),
+            if (option.distance != null) ...[
+              Row(
+                children: [
+                  Icon(
+                    Icons.location_on, 
+                    size: 14, 
+                    color: isDisabled ? Colors.grey.shade400 : Colors.blue[600],
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    option.distance!.distanceText,
+                    style: TextStyle(
+                      fontSize: 12, 
+                      color: isDisabled ? Colors.grey.shade400 : Colors.blue[600],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.access_time, 
+                    size: 14, 
+                    color: isDisabled ? Colors.grey.shade400 : Colors.orange[600],
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    option.estimatedTime,
+                    style: TextStyle(
+                      fontSize: 12, 
+                      color: isDisabled ? Colors.grey.shade400 : Colors.orange[600],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 4),
+            if (isDisabled) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                const SizedBox(width: 12),
-                Icon(Icons.access_time, size: 14, color: Colors.orange[600]),
-                const SizedBox(width: 4),
-                Text(
-                  option.estimatedTime,
-                  style: TextStyle(fontSize: 12, color: Colors.orange[600]),
+                child: Text(
+                  option.unavailableReason,
+                  style: TextStyle(
+                    fontSize: 11, 
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ],
-            ),
-            if (option.distance.isEstimate) ...[
-              const SizedBox(height: 4),
+              ),
+            ] else if (option.distance?.isEstimate == true) ...[
               Text(
                 'Estimasi berdasarkan lokasi kota',
-                style: TextStyle(fontSize: 10, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  fontSize: 10, 
+                  color: Colors.grey[500], 
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ],
@@ -617,19 +700,21 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           children: [
             Text(
               option.formattedCost,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2E7D32),
+                color: isDisabled 
+                  ? Colors.grey.shade500
+                  : const Color(0xFF2E7D32),
               ),
             ),
-            if (isSelected) ...[
+            if (isSelected && !isDisabled) ...[
               const SizedBox(height: 4),
               const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 20),
             ],
           ],
         ),
-        onTap: () {
+        onTap: isDisabled ? null : () {
           setState(() {
             _selectedShipping = _convertStoreDeliveryToShippingCost(option);
           });
@@ -639,7 +724,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // Widget untuk shipping section - MODIFIKASI
+  // Widget untuk shipping section - UPDATED
   Widget _buildShippingSection() {
     return Container(
       color: Colors.white,
@@ -711,7 +796,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
           const SizedBox(height: 12),
 
-          // Store delivery info banner - BARU
+          // Store delivery info banner - UPDATED
           if (_isCalculatingDistance) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -769,9 +854,44 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                     ],
                   ),
                   const SizedBox(height: 4),
+                  if (_distanceResult != null)
+                    Text(
+                      'Jarak ${_distanceResult!.distanceText} • ${_storeDeliveryOption!.formattedCost}',
+                      style: TextStyle(fontSize: 12, color: Colors.green.shade600),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else if (_storeDeliveryOption != null && !_storeDeliveryOption!.isAvailable) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange.shade700, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pengiriman Toko Tidak Tersedia',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   Text(
-                    'Jarak ${_distanceResult!.distanceText} • ${_storeDeliveryOption!.formattedCost}',
-                    style: TextStyle(fontSize: 12, color: Colors.green.shade600),
+                    _storeDeliveryOption!.unavailableReason,
+                    style: TextStyle(fontSize: 12, color: Colors.orange.shade600),
                   ),
                 ],
               ),
@@ -962,7 +1082,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // Sisa method tetap sama...
+  // Rest of the methods remain the same...
   Widget _buildOrderSummary(CartService cartService) {
     final selectedTotal = _calculateSelectedTotal(cartService);
     final shippingCost = _selectedShipping?.cost.toDouble() ?? 0;
@@ -1045,7 +1165,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // Methods lainnya tetap sama (checkout, error handling, dll.)
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1110,7 +1229,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // Sisa widget builders lainnya tetap sama...
+  // Rest of widget builders remain the same...
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
@@ -1437,7 +1556,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // Address Modal
+  // Address Modal (same as before)
   Widget _buildAddressModal() {
     return Container(
       decoration: const BoxDecoration(
@@ -1834,5 +1953,3 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 }
-
-// Cart Item Tile tetap sama seperti sebelumnya...
