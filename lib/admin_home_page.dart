@@ -58,19 +58,19 @@ class _AdminHomePageState extends State<AdminHomePage> {
         ),
         actions: [
           // Store Delivery Quick Access
-          if (_currentIndex == 0 || _currentIndex == 4)
-            IconButton(
-              icon: const Icon(Icons.local_shipping, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const StoreDeliveryDashboard(),
-                  ),
-                );
-              },
-              tooltip: 'Dashboard Pengiriman Toko',
-            ),
+          // if (_currentIndex == 0 || _currentIndex == 4)
+          //   IconButton(
+          //     icon: const Icon(Icons.local_shipping, color: Colors.white),
+          //     onPressed: () {
+          //       Navigator.push(
+          //         context,
+          //         MaterialPageRoute(
+          //           builder: (context) => const StoreDeliveryDashboard(),
+          //         ),
+          //       );
+          //     },
+          //     tooltip: 'Dashboard Pengiriman Toko',
+          //   ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined, color: Colors.white),
             onPressed: () {
@@ -392,72 +392,72 @@ class _DashboardTab extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Quick Actions untuk Store Delivery
-          Row(
-            children: [
-              const Text(
-                'Aksi Cepat',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D3748),
-                ),
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const StoreDeliveryDashboard(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.local_shipping, size: 16),
-                label: const Text('Lihat Semua'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF2E7D32),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          // Row(
+          //   children: [
+          //     const Text(
+          //       'Aksi Cepat',
+          //       style: TextStyle(
+          //         fontSize: 20,
+          //         fontWeight: FontWeight.bold,
+          //         color: Color(0xFF2D3748),
+          //       ),
+          //     ),
+          //     const Spacer(),
+          //     TextButton.icon(
+          //       onPressed: () {
+          //         Navigator.push(
+          //           context,
+          //           MaterialPageRoute(
+          //             builder: (context) => const StoreDeliveryDashboard(),
+          //           ),
+          //         );
+          //       },
+          //       icon: const Icon(Icons.local_shipping, size: 16),
+          //       label: const Text('Lihat Semua'),
+          //       style: TextButton.styleFrom(
+          //         foregroundColor: const Color(0xFF2E7D32),
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          // const SizedBox(height: 16),
 
           // Store Delivery Quick Actions
-          Row(
-            children: [
-              Expanded(
-                child: _buildQuickActionCard(
-                  'Dashboard Pengiriman',
-                  Icons.local_shipping,
-                  const Color(0xFF2E7D32),
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const StoreDeliveryDashboard(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildQuickActionCard(
-                  'Pengaturan Pengiriman',
-                  Icons.settings,
-                  Colors.blue,
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const StoreDeliverySettingsPage(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+          // Row(
+          //   children: [
+          //     Expanded(
+          //       child: _buildQuickActionCard(
+          //         'Dashboard Pengiriman',
+          //         Icons.local_shipping,
+          //         const Color(0xFF2E7D32),
+          //         () {
+          //           Navigator.push(
+          //             context,
+          //             MaterialPageRoute(
+          //               builder: (context) => const StoreDeliveryDashboard(),
+          //             ),
+          //           );
+          //         },
+          //       ),
+          //     ),
+          //     const SizedBox(width: 12),
+          //     Expanded(
+          //       child: _buildQuickActionCard(
+          //         'Pengaturan Pengiriman',
+          //         Icons.settings,
+          //         Colors.blue,
+          //         () {
+          //           Navigator.push(
+          //             context,
+          //             MaterialPageRoute(
+          //               builder: (context) => const StoreDeliverySettingsPage(),
+          //             ),
+          //           );
+          //         },
+          //       ),
+          //     ),
+          //   ],
+          // ),
 
           const SizedBox(height: 24),
 
@@ -547,17 +547,17 @@ class _DashboardTab extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Store Delivery Stats Preview
-          FutureBuilder<StoreDeliveryStats>(
-            future: StoreDeliveryService.getDeliveryStats(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          // FutureBuilder<StoreDeliveryStats>(
+          //   future: StoreDeliveryService.getDeliveryStats(),
+          //   builder: (context, snapshot) {
+          //     if (snapshot.connectionState == ConnectionState.waiting) {
+          //       return const Center(child: CircularProgressIndicator());
+          //     }
 
-              final stats = snapshot.data ?? StoreDeliveryStats.empty();
-              return _buildStoreDeliveryPreview(context, stats);
-            },
-          ),
+          //     final stats = snapshot.data ?? StoreDeliveryStats.empty();
+          //     return _buildStoreDeliveryPreview(context, stats);
+          //   },
+          // ),
         ],
       ),
     );
@@ -617,89 +617,89 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStoreDeliveryPreview(BuildContext context, StoreDeliveryStats stats) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade50, Colors.white],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.green.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2E7D32),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.local_shipping, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Pengiriman Toko - 30 Hari Terakhir',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D3748),
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const StoreDeliveryDashboard(),
-                    ),
-                  );
-                },
-                child: const Text('Detail'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMiniStatCard(
-                  'Total Pesanan',
-                  '${stats.totalOrders}',
-                  Icons.shopping_cart,
-                  Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMiniStatCard(
-                  'Terkirim',
-                  '${stats.deliveredOrders}',
-                  Icons.check_circle,
-                  Colors.green,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMiniStatCard(
-                  'Sukses Rate',
-                  '${stats.successRate.toStringAsFixed(0)}%',
-                  Icons.trending_up,
-                  Colors.purple,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildStoreDeliveryPreview(BuildContext context, StoreDeliveryStats stats) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(20),
+  //     decoration: BoxDecoration(
+  //       gradient: LinearGradient(
+  //         colors: [Colors.green.shade50, Colors.white],
+  //         begin: Alignment.topLeft,
+  //         end: Alignment.bottomRight,
+  //       ),
+  //       borderRadius: BorderRadius.circular(16),
+  //       border: Border.all(color: Colors.green.shade200),
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Container(
+  //               padding: const EdgeInsets.all(8),
+  //               decoration: BoxDecoration(
+  //                 color: const Color(0xFF2E7D32),
+  //                 borderRadius: BorderRadius.circular(8),
+  //               ),
+  //               child: const Icon(Icons.local_shipping, color: Colors.white, size: 20),
+  //             ),
+  //             const SizedBox(width: 12),
+  //             const Text(
+  //               'Pengiriman Toko - 30 Hari Terakhir',
+  //               style: TextStyle(
+  //                 fontSize: 16,
+  //                 fontWeight: FontWeight.bold,
+  //                 color: Color(0xFF2D3748),
+  //               ),
+  //             ),
+  //             const Spacer(),
+  //             TextButton(
+  //               onPressed: () {
+  //                 Navigator.push(
+  //                   context,
+  //                   MaterialPageRoute(
+  //                     builder: (context) => const StoreDeliveryDashboard(),
+  //                   ),
+  //                 );
+  //               },
+  //               child: const Text('Detail'),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 16),
+  //         Row(
+  //           children: [
+  //             Expanded(
+  //               child: _buildMiniStatCard(
+  //                 'Total Pesanan',
+  //                 '${stats.totalOrders}',
+  //                 Icons.shopping_cart,
+  //                 Colors.blue,
+  //               ),
+  //             ),
+  //             const SizedBox(width: 12),
+  //             Expanded(
+  //               child: _buildMiniStatCard(
+  //                 'Terkirim',
+  //                 '${stats.deliveredOrders}',
+  //                 Icons.check_circle,
+  //                 Colors.green,
+  //               ),
+  //             ),
+  //             const SizedBox(width: 12),
+  //             Expanded(
+  //               child: _buildMiniStatCard(
+  //                 'Sukses Rate',
+  //                 '${stats.successRate.toStringAsFixed(0)}%',
+  //                 Icons.trending_up,
+  //                 Colors.purple,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildMiniStatCard(String title, String value, IconData icon, Color color) {
     return Container(
@@ -850,38 +850,38 @@ class _OrdersTabState extends State<_OrdersTab> with SingleTickerProviderStateMi
       child: Column(
         children: [
           // Header dengan tombol aksi
-          Row(
-            children: [
-              const Text(
-                'Pengiriman Toko',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2D3748),
-                ),
-              ),
-              const Spacer(),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const StoreDeliveryDashboard(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.dashboard, size: 18),
-                label: const Text('Dashboard'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          // Row(
+          //   children: [
+          //     const Text(
+          //       'Pengiriman Toko',
+          //       style: TextStyle(
+          //         fontSize: 20,
+          //         fontWeight: FontWeight.bold,
+          //         color: Color(0xFF2D3748),
+          //       ),
+          //     ),
+          //     const Spacer(),
+          //     ElevatedButton.icon(
+          //       onPressed: () {
+          //         Navigator.push(
+          //           context,
+          //           MaterialPageRoute(
+          //             builder: (context) => const StoreDeliveryDashboard(),
+          //           ),
+          //         );
+          //       },
+          //       icon: const Icon(Icons.dashboard, size: 18),
+          //       label: const Text('Dashboard'),
+          //       style: ElevatedButton.styleFrom(
+          //         backgroundColor: const Color(0xFF2E7D32),
+          //         foregroundColor: Colors.white,
+          //         shape: RoundedRectangleBorder(
+          //           borderRadius: BorderRadius.circular(12),
+          //         ),
+          //       ),
+          //     ),
+          //   ],
+          // ),
           const SizedBox(height: 24),
 
           // Quick Stats
@@ -967,50 +967,50 @@ class _OrdersTabState extends State<_OrdersTab> with SingleTickerProviderStateMi
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const StoreDeliverySettingsPage(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.settings, size: 18),
-                        label: const Text('Pengaturan'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF2E7D32),
-                          side: const BorderSide(color: Color(0xFF2E7D32)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const StoreDeliveryDashboard(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.dashboard, size: 18),
-                        label: const Text('Buka Dashboard'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: [
+                  //     OutlinedButton.icon(
+                  //       onPressed: () {
+                  //         Navigator.push(
+                  //           context,
+                  //           MaterialPageRoute(
+                  //             builder: (context) => const StoreDeliverySettingsPage(),
+                  //           ),
+                  //         );
+                  //       },
+                  //       icon: const Icon(Icons.settings, size: 18),
+                  //       label: const Text('Pengaturan'),
+                  //       style: OutlinedButton.styleFrom(
+                  //         foregroundColor: const Color(0xFF2E7D32),
+                  //         side: const BorderSide(color: Color(0xFF2E7D32)),
+                  //         shape: RoundedRectangleBorder(
+                  //           borderRadius: BorderRadius.circular(12),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 16),
+                  //     ElevatedButton.icon(
+                  //       onPressed: () {
+                  //         Navigator.push(
+                  //           context,
+                  //           MaterialPageRoute(
+                  //             builder: (context) => const StoreDeliveryDashboard(),
+                  //           ),
+                  //         );
+                  //       },
+                  //       icon: const Icon(Icons.dashboard, size: 18),
+                  //       label: const Text('Buka Dashboard'),
+                  //       style: ElevatedButton.styleFrom(
+                  //         backgroundColor: const Color(0xFF2E7D32),
+                  //         foregroundColor: Colors.white,
+                  //         shape: RoundedRectangleBorder(
+                  //           borderRadius: BorderRadius.circular(12),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
                 ],
               ),
             ),
