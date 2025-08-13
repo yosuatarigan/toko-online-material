@@ -1,8 +1,11 @@
+// lib/pages/user/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:toko_online_material/address_setting_page.dart';
+import 'package:toko_online_material/store_info_widget.dart';
+import 'package:toko_online_material/widget/delevery_tracking_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,6 +22,7 @@ class _ProfilePageState extends State<ProfilePage>
 
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -164,8 +168,11 @@ class _ProfilePageState extends State<ProfilePage>
               delegate: SliverChildListDelegate([
                 _buildProfileHeader(),
                 _buildQuickActions(),
-                _buildMenuSection(),
-                _buildStoreInfoSection(),
+                _buildOrderSection(),
+                _buildAccountSection(),
+                _buildSettingsSection(),
+                const SizedBox(height: 20),
+                const StoreInfoWidget(showFullInfo: true),
                 _buildFooter(),
                 const SizedBox(height: 100), // Space for bottom nav
               ]),
@@ -183,6 +190,7 @@ class _ProfilePageState extends State<ProfilePage>
       pinned: true,
       backgroundColor: const Color(0xFF2E7D32),
       automaticallyImplyLeading: false,
+
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: const BoxDecoration(
@@ -397,11 +405,11 @@ class _ProfilePageState extends State<ProfilePage>
         children: [
           Expanded(
             child: _buildQuickActionCard(
-              icon: Icons.shopping_bag_outlined,
-              title: 'Pesanan',
-              subtitle: 'Riwayat',
+              icon: Icons.local_shipping_outlined,
+              title: 'Lacak Pesanan',
+              subtitle: 'Lihat status',
               color: Colors.blue.shade600,
-              onTap: () => _showComingSoonSnackBar('Riwayat Pesanan'),
+              onTap: () => _showOrderTrackingDialog(),
             ),
           ),
           const SizedBox(width: 12),
@@ -481,6 +489,7 @@ class _ProfilePageState extends State<ProfilePage>
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF2D3748),
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 Text(
                   subtitle,
@@ -494,9 +503,130 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildMenuSection() {
+  Widget _buildOrderSection() {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.shopping_bag_outlined,
+                  color: Colors.green.shade600,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Pesanan Saya',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2D3748),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildOrderStatusCard(
+                  icon: Icons.access_time,
+                  title: 'Menunggu\nKonfirmasi',
+                  color: Colors.orange,
+                  onTap: () => _showComingSoonSnackBar('Riwayat Pesanan'),
+                ),
+              ),
+              Expanded(
+                child: _buildOrderStatusCard(
+                  icon: Icons.local_shipping,
+                  title: 'Sedang\nDikirim',
+                  color: Colors.blue,
+                  onTap: () => _showComingSoonSnackBar('Riwayat Pesanan'),
+                ),
+              ),
+              Expanded(
+                child: _buildOrderStatusCard(
+                  icon: Icons.check_circle,
+                  title: 'Selesai',
+                  color: Colors.green,
+                  onTap: () => _showComingSoonSnackBar('Riwayat Pesanan'),
+                ),
+              ),
+              Expanded(
+                child: _buildOrderStatusCard(
+                  icon: Icons.star_rate,
+                  title: 'Beri\nUlasan',
+                  color: Colors.purple,
+                  onTap: () => _showComingSoonSnackBar('Beri Ulasan'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderStatusCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF2D3748),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountSection() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -535,96 +665,44 @@ class _ProfilePageState extends State<ProfilePage>
     );
   }
 
-  Widget _buildStoreInfoSection() {
+  Widget _buildSettingsSection() {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade50, Colors.white],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.green.shade200, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Gunakan placeholder untuk logo
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.store,
-                    color: Colors.green.shade700,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Toko Barokah',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                      Text(
-                        'Material Berkualitas Sejak 2020',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildStoreInfoItem(
-              Icons.location_on,
-              'Jl. Tanggul, Sawah, Centini, Kec. Laren\nKabupaten Lamongan, Jawa Timur 62262',
-            ),
-            const SizedBox(height: 12),
-            _buildStoreInfoItem(
-              Icons.access_time,
-              'Senin - Sabtu: 07:00 - 17:00\nMinggu: 08:00 - 15:00',
-            ),
-            const SizedBox(height: 12),
-            _buildStoreInfoItem(Icons.email, 'toko.barokah.material@gmail.com'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStoreInfoItem(IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: Colors.green.shade600),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              height: 1.4,
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildMenuItem(
+            icon: Icons.help_outline,
+            title: 'Bantuan & Dukungan',
+            subtitle: 'FAQ, Chat dengan kami',
+            onTap: () => _showComingSoonSnackBar('Bantuan'),
+          ),
+          _buildMenuDivider(),
+          _buildMenuItem(
+            icon: Icons.info_outline,
+            title: 'Tentang Aplikasi',
+            subtitle: 'Versi 1.0.0 - Informasi aplikasi',
+            onTap: () => _showAboutDialog(),
+          ),
+          _buildMenuDivider(),
+          _buildMenuItem(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Kebijakan Privasi',
+            subtitle: 'Ketentuan penggunaan aplikasi',
+            onTap: () => _showComingSoonSnackBar('Kebijakan Privasi'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -744,4 +822,132 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildMenuDivider() {
     return Divider(height: 1, color: Colors.grey.shade200, indent: 58);
   }
+
+  // Dialog methods
+  void _showOrderTrackingDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Lacak Pesanan'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Masukkan nomor pesanan Anda:'),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'TB2025010101',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.search),
+                  ),
+                  onSubmitted: (orderId) {
+                    Navigator.pop(context);
+                    if (orderId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => DeliveryTrackingPage(
+                                orderId: orderId,
+                                orderType: 'store_delivery',
+                              ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Lacak'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // void _showNotificationsPage() async {
+  //   if (user != null) {
+  //     final notifications = await StoreDeliveryNotificationService
+  //         .getNotificationHistory(user!.uid);
+
+  //     if (mounted) {
+  //       Navigator.push(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => NotificationListPage(notifications: notifications),
+  //         ),
+  //       ).then((_) {
+  //         // Refresh notification count when returning
+  //         _loadUnreadNotificationCount();
+  //       });
+  //     }
+  //   }
+  // }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.store, color: Colors.green.shade600, size: 24),
+                const SizedBox(width: 12),
+                const Text('Tentang Toko Barokah'),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Toko Barokah Material',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('Versi Aplikasi: 1.0.0'),
+                SizedBox(height: 16),
+                Text(
+                  'Penyedia material berkualitas sejak 2020. Melayani kebutuhan material konstruksi dengan pengiriman terpercaya.',
+                  style: TextStyle(height: 1.4),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Fitur Pengiriman Toko:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 4),
+                Text('• Pengiriman langsung dari toko'),
+                Text('• Radius pengiriman hingga 10 km'),
+                Text('• Biaya pengiriman terjangkau'),
+                Text('• Tracking real-time'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Tutup'),
+              ),
+            ],
+          ),
+    );
+  }
 }
+
+// Notification List Page
