@@ -1,22 +1,23 @@
 // lib/service/order_service.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:toko_online_material/models/order_model.dart' as order_model;
 import 'dart:io';
+
+import 'package:toko_online_material/models/order_model.dart';
 
 class OrderService extends ChangeNotifier {
   static final OrderService _instance = OrderService._internal();
   factory OrderService() => _instance;
   OrderService._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final firestore.FirebaseFirestore _firestore = firestore.FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // Create new order
-  Future<String?> createOrder(order_model.Order order) async {
+  Future<String?> createOrder(Order order) async {
     try {
       final user = _auth.currentUser;
       if (user == null) throw 'User not authenticated';
@@ -54,8 +55,8 @@ class OrderService extends ChangeNotifier {
     try {
       await _firestore.collection('orders').doc(orderId).update({
         'paymentProofUrl': paymentProofUrl,
-        'paymentStatus': order_model.PaymentStatus.waitingConfirmation.name,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'paymentStatus': PaymentStatus.waitingConfirmation.name,
+        'updatedAt': firestore.FieldValue.serverTimestamp(),
       });
     } catch (e) {
       if (kDebugMode) {
@@ -66,11 +67,11 @@ class OrderService extends ChangeNotifier {
   }
 
   // Get user orders stream
-  Stream<List<order_model.Order>> getUserOrdersStream({order_model.OrderStatus? status}) {
+  Stream<List<Order>> getUserOrdersStream({OrderStatus? status}) {
     final user = _auth.currentUser;
     if (user == null) return Stream.value([]);
 
-    Query query = _firestore
+    firestore.Query query = _firestore
         .collection('orders')
         .where('userId', isEqualTo: user.uid)
         .orderBy('createdAt', descending: true);
@@ -80,16 +81,16 @@ class OrderService extends ChangeNotifier {
     }
 
     return query.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => order_model.Order.fromFirestore(doc)).toList();
+      return snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList();
     });
   }
 
   // Get all orders stream (for admin)
-  Stream<List<order_model.Order>> getAllOrdersStream({
-    order_model.OrderStatus? status,
-    order_model.PaymentStatus? paymentStatus,
+  Stream<List<Order>> getAllOrdersStream({
+    OrderStatus? status,
+    PaymentStatus? paymentStatus,
   }) {
-    Query query = _firestore
+    firestore.Query query = _firestore
         .collection('orders')
         .orderBy('createdAt', descending: true);
 
@@ -102,7 +103,7 @@ class OrderService extends ChangeNotifier {
     }
 
     return query.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => order_model.Order.fromFirestore(doc)).toList();
+      return snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList();
     });
   }
 
@@ -110,7 +111,7 @@ class OrderService extends ChangeNotifier {
   Stream<int> getWaitingConfirmationCount() {
     return _firestore
         .collection('orders')
-        .where('paymentStatus', isEqualTo: order_model.PaymentStatus.waitingConfirmation.name)
+        .where('paymentStatus', isEqualTo: PaymentStatus.waitingConfirmation.name)
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
@@ -119,9 +120,9 @@ class OrderService extends ChangeNotifier {
   Future<void> confirmPayment(String orderId, bool approved, {String? notes}) async {
     try {
       final updateData = <String, dynamic>{
-        'paymentStatus': approved ? order_model.PaymentStatus.confirmed.name : order_model.PaymentStatus.failed.name,
-        'status': approved ? order_model.OrderStatus.processing.name : order_model.OrderStatus.cancelled.name,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'paymentStatus': approved ? PaymentStatus.confirmed.name : PaymentStatus.failed.name,
+        'status': approved ? OrderStatus.processing.name : OrderStatus.cancelled.name,
+        'updatedAt': firestore.FieldValue.serverTimestamp(),
       };
 
       if (notes != null && notes.isNotEmpty) {
@@ -140,13 +141,13 @@ class OrderService extends ChangeNotifier {
   // Admin: Update order status
   Future<void> updateOrderStatus(
     String orderId, 
-    order_model.OrderStatus status, {
+    OrderStatus status, {
     String? adminNotes,
   }) async {
     try {
       final updateData = <String, dynamic>{
         'status': status.name,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': firestore.FieldValue.serverTimestamp(),
       };
 
       if (adminNotes != null) {
@@ -163,11 +164,11 @@ class OrderService extends ChangeNotifier {
   }
 
   // Get order by ID
-  Future<order_model.Order?> getOrderById(String orderId) async {
+  Future<Order?> getOrderById(String orderId) async {
     try {
       final doc = await _firestore.collection('orders').doc(orderId).get();
       if (doc.exists) {
-        return order_model.Order.fromFirestore(doc);
+        return Order.fromFirestore(doc);
       }
       return null;
     } catch (e) {
@@ -187,25 +188,25 @@ class OrderService extends ChangeNotifier {
       // Today's orders count
       final todayOrders = await _firestore
           .collection('orders')
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('createdAt', isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(startOfDay))
           .get();
 
       // Waiting confirmation count
       final waitingConfirmation = await _firestore
           .collection('orders')
-          .where('paymentStatus', isEqualTo: order_model.PaymentStatus.waitingConfirmation.name)
+          .where('paymentStatus', isEqualTo: PaymentStatus.waitingConfirmation.name)
           .get();
 
       // Processing orders count
       final processing = await _firestore
           .collection('orders')
-          .where('status', isEqualTo: order_model.OrderStatus.processing.name)
+          .where('status', isEqualTo: OrderStatus.processing.name)
           .get();
 
       // Shipping orders count
       final shipping = await _firestore
           .collection('orders')
-          .where('status', isEqualTo: order_model.OrderStatus.shipping.name)
+          .where('status', isEqualTo: OrderStatus.shipping.name)
           .get();
 
       return {
@@ -235,8 +236,8 @@ class OrderService extends ChangeNotifier {
 
       final todayOrders = await _firestore
           .collection('orders')
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-          .where('paymentStatus', isEqualTo: order_model.PaymentStatus.confirmed.name)
+          .where('createdAt', isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(startOfDay))
+          .where('paymentStatus', isEqualTo: PaymentStatus.confirmed.name)
           .get();
 
       double totalRevenue = 0;
@@ -267,13 +268,95 @@ class OrderService extends ChangeNotifier {
     }
   }
 
+  // Admin: Update shipping information
+  Future<void> updateShippingInfo(
+    String orderId,
+    String? trackingNumber,
+    String? shipmentProofUrl,
+    String? shippingNotes,
+  ) async {
+    try {
+      final updateData = <String, dynamic>{
+        'status': OrderStatus.shipping.name,
+        'updatedAt': firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (trackingNumber != null && trackingNumber.isNotEmpty) {
+        updateData['trackingNumber'] = trackingNumber.trim();
+      }
+
+      if (shipmentProofUrl != null) {
+        updateData['shipmentProofUrl'] = shipmentProofUrl;
+      }
+
+      if (shippingNotes != null && shippingNotes.isNotEmpty) {
+        updateData['shippingNotes'] = shippingNotes.trim();
+      }
+
+      await _firestore.collection('orders').doc(orderId).update(updateData);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating shipping info: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Upload shipment proof image
+  Future<String> uploadShipmentProof(String orderId, File imageFile) async {
+    try {
+      final fileName = 'shipment_proofs/${orderId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = _storage.ref().child(fileName);
+      
+      await ref.putFile(imageFile);
+      final downloadUrl = await ref.getDownloadURL();
+      
+      return downloadUrl;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error uploading shipment proof: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Get orders that need shipping action (for admin)
+  Stream<List<Order>> getOrdersNeedingShipping() {
+    return _firestore
+        .collection('orders')
+        .where('paymentStatus', isEqualTo: PaymentStatus.confirmed.name)
+        .where('status', isEqualTo: OrderStatus.processing.name)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList();
+    });
+  }
+
+  // Get shipped orders count for admin dashboard
+  Future<int> getShippedOrdersCount() async {
+    try {
+      final snapshot = await _firestore
+          .collection('orders')
+          .where('status', isEqualTo: OrderStatus.shipping.name)
+          .get();
+      
+      return snapshot.docs.length;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting shipped orders count: $e');
+      }
+      return 0;
+    }
+  }
+
   // Cancel order (user action)
   Future<void> cancelOrder(String orderId, String reason) async {
     try {
       await _firestore.collection('orders').doc(orderId).update({
-        'status': order_model.OrderStatus.cancelled.name,
+        'status': OrderStatus.cancelled.name,
         'adminNotes': 'Dibatalkan oleh pelanggan. Alasan: $reason',
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': firestore.FieldValue.serverTimestamp(),
       });
     } catch (e) {
       if (kDebugMode) {

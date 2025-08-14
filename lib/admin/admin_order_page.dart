@@ -1,6 +1,10 @@
 // lib/admin/admin_orders_page.dart
-import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore; 
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+
 import 'package:toko_online_material/models/order_model.dart';
 
 class AdminOrdersPage extends StatefulWidget {
@@ -423,17 +427,24 @@ class _AdminOrderDetailModal extends StatefulWidget {
 
 class _AdminOrderDetailModalState extends State<_AdminOrderDetailModal> {
   final _notesController = TextEditingController();
+  final _trackingController = TextEditingController();
+  final _shippingNotesController = TextEditingController();
   bool _isLoading = false;
+  File? _shipmentProof;
 
   @override
   void initState() {
     super.initState();
     _notesController.text = widget.order.adminNotes ?? '';
+    _trackingController.text = widget.order.trackingNumber ?? '';
+    _shippingNotesController.text = widget.order.shippingNotes ?? '';
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _trackingController.dispose();
+    _shippingNotesController.dispose();
     super.dispose();
   }
 
@@ -543,6 +554,11 @@ class _AdminOrderDetailModalState extends State<_AdminOrderDetailModal> {
                             ],
                           ),
                         ),
+
+                      // Shipping Management Section
+                      if (widget.order.paymentStatus == PaymentStatus.confirmed && 
+                          widget.order.status != OrderStatus.cancelled)
+                        _buildShippingManagementSection(),
 
                       // Customer Info
                       _buildDetailSection(
@@ -919,6 +935,414 @@ class _AdminOrderDetailModalState extends State<_AdminOrderDetailModal> {
         ),
       ),
     );
+  }
+
+  Widget _buildShippingManagementSection() {
+    return _buildDetailSection(
+      'Kelola Pengiriman',
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  widget.order.isStoreDelivery ? Icons.store : Icons.local_shipping,
+                  color: Colors.blue.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.order.isStoreDelivery ? 'Pengiriman Toko' : 'Pengiriman Expedisi',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            if (widget.order.isStoreDelivery) ...[
+              _buildStoreDeliveryForm(),
+            ] else ...[
+              _buildExpedisiForm(),
+            ],
+            
+            if (!widget.order.hasShippingInfo) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _submitShippingInfo,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Icon(widget.order.isStoreDelivery ? Icons.local_shipping : Icons.send),
+                  label: Text(
+                    _isLoading 
+                        ? 'Mengirim...' 
+                        : widget.order.isStoreDelivery 
+                            ? 'Kirim Pesanan' 
+                            : 'Serahkan ke Kurir',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.order.isStoreDelivery 
+                            ? 'Pesanan telah dikirim oleh toko'
+                            : 'Pesanan telah diserahkan ke kurir',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoreDeliveryForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Upload Bukti Pengiriman',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        
+        if (widget.order.shipmentProofUrl != null) ...[
+          Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                widget.order.shipmentProofUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Center(child: Text('Gagal memuat gambar')),
+              ),
+            ),
+          ),
+        ] else if (_shipmentProof != null) ...[
+          Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(_shipmentProof!, fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _pickShipmentImage,
+            icon: const Icon(Icons.edit),
+            label: const Text('Ganti Foto'),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
+          ),
+        ] else ...[
+          GestureDetector(
+            onTap: _pickShipmentImage,
+            child: Container(
+              width: double.infinity,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_a_photo, size: 32, color: Colors.grey.shade600),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap untuk upload foto pengiriman',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        
+        const SizedBox(height: 16),
+        const Text(
+          'Catatan Pengiriman',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _shippingNotesController,
+          decoration: const InputDecoration(
+            hintText: 'Contoh: Dikirim pukul 14:00, estimasi sampai 2 jam',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 2,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpedisiForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Nomor Resi',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _trackingController,
+                    decoration: InputDecoration(
+                      hintText: 'Masukkan nomor resi ${widget.order.shipping.courierName}',
+                      border: const OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 16),
+        const Text(
+          'Upload Bukti Serah Terima',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        
+        if (widget.order.shipmentProofUrl != null) ...[
+          Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                widget.order.shipmentProofUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Center(child: Text('Gagal memuat gambar')),
+              ),
+            ),
+          ),
+        ] else if (_shipmentProof != null) ...[
+          Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(_shipmentProof!, fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _pickShipmentImage,
+            icon: const Icon(Icons.edit),
+            label: const Text('Ganti Foto'),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
+          ),
+        ] else ...[
+          GestureDetector(
+            onTap: _pickShipmentImage,
+            child: Container(
+              width: double.infinity,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.receipt_long, size: 32, color: Colors.grey.shade600),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap untuk upload bukti serah terima',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickShipmentImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 80,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _shipmentProof = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _submitShippingInfo() async {
+    // Validation
+    if (widget.order.isStoreDelivery) {
+      if (_shipmentProof == null && widget.order.shipmentProofUrl == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload foto bukti pengiriman terlebih dahulu'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    } else {
+      if (_trackingController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Masukkan nomor resi terlebih dahulu'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (_shipmentProof == null && widget.order.shipmentProofUrl == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Upload foto bukti serah terima terlebih dahulu'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      String? shipmentProofUrl = widget.order.shipmentProofUrl;
+      
+      // Upload image if new image selected
+      if (_shipmentProof != null) {
+        final fileName = 'shipment_proofs/${widget.order.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final ref = FirebaseStorage.instance.ref().child(fileName);
+        await ref.putFile(_shipmentProof!);
+        shipmentProofUrl = await ref.getDownloadURL();
+      }
+
+      // Update order
+      final updateData = <String, dynamic>{
+        'status': OrderStatus.shipping.name,
+        'shipmentProofUrl': shipmentProofUrl,
+        'updatedAt': firestore.FieldValue.serverTimestamp(),
+      };
+
+      if (!widget.order.isStoreDelivery) {
+        updateData['trackingNumber'] = _trackingController.text.trim();
+      }
+
+      if (_shippingNotesController.text.trim().isNotEmpty) {
+        updateData['shippingNotes'] = _shippingNotesController.text.trim();
+      }
+
+      await firestore.FirebaseFirestore.instance
+          .collection('orders')
+          .doc(widget.order.id)
+          .update(updateData);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.order.isStoreDelivery
+                  ? 'Pesanan berhasil dikirim!'
+                  : 'Pesanan berhasil diserahkan ke kurir!',
+            ),
+            backgroundColor: const Color(0xFF2E7D32),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengirim: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   String _formatCurrency(double amount) {

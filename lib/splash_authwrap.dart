@@ -231,7 +231,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ),
                             ),
                             // Icon dengan nuansa toko material
-                           Image.asset('assets/logo.png')
+                           Image.asset('assets/logo.jpg')
                           ],
                         ),
                       ),

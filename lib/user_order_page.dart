@@ -1,8 +1,9 @@
 // lib/user_orders_page.dart
-import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:toko_online_material/models/order_model.dart';
+import 'package:toko_online_material/shiping_utils.dart';
 
 class UserOrdersPage extends StatefulWidget {
   const UserOrdersPage({super.key});
@@ -34,7 +35,10 @@ class _UserOrdersPageState extends State<UserOrdersPage>
       appBar: AppBar(
         backgroundColor: const Color(0xFF2E7D32),
         elevation: 0,
-
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           'Riwayat Pesanan',
           style: TextStyle(
@@ -346,6 +350,51 @@ class _OrderCard extends StatelessWidget {
               ],
 
               const Divider(height: 24),
+
+              // Shipping Quick Info
+              if (order.hasShippingInfo) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color:
+                        order.isStoreDelivery
+                            ? Colors.green.shade50
+                            : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        order.isStoreDelivery
+                            ? Icons.store
+                            : Icons.local_shipping,
+                        color:
+                            order.isStoreDelivery
+                                ? Colors.green.shade700
+                                : Colors.blue.shade700,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          order.isStoreDelivery
+                              ? 'Sedang dikirim toko'
+                              : 'Resi: ${order.trackingNumber}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color:
+                                order.isStoreDelivery
+                                    ? Colors.green.shade700
+                                    : Colors.blue.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Total & Action
               Row(
@@ -714,6 +763,10 @@ class _OrderDetailModal extends StatelessWidget {
                             ),
                           ),
                         ),
+
+                      // Shipping Information
+                      if (order.hasShippingInfo)
+                        _buildShippingInfoSection(order, context),
                     ],
                   ),
                 ),
@@ -724,57 +777,334 @@ class _OrderDetailModal extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildDetailSection(String title, Widget content) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
+Widget _buildShippingInfoSection(Order order, BuildContext context) {
+  return _buildDetailSection(
+    order.isStoreDelivery ? 'Pengiriman Toko' : 'Informasi Pengiriman',
+    Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color:
+            order.isStoreDelivery ? Colors.green.shade50 : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              order.isStoreDelivery
+                  ? Colors.green.shade200
+                  : Colors.blue.shade200,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2D3748),
-            ),
+          Row(
+            children: [
+              Icon(
+                order.isStoreDelivery ? Icons.store : Icons.local_shipping,
+                color:
+                    order.isStoreDelivery
+                        ? Colors.green.shade700
+                        : Colors.blue.shade700,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                order.shippingStatusText,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color:
+                      order.isStoreDelivery
+                          ? Colors.green.shade700
+                          : Colors.blue.shade700,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          content,
+          const SizedBox(height: 16),
+
+          if (order.isStoreDelivery) ...[
+            _buildStoreDeliveryInfo(order, context),
+          ] else ...[
+            _buildExpedisiInfo(order, context),
+          ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildDetailRow(String label, String value, {bool isTotal = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.w600 : FontWeight.normal,
-              color: isTotal ? const Color(0xFF2D3748) : Colors.grey[600],
+Widget _buildStoreDeliveryInfo(Order order, BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (order.shippingNotes != null && order.shippingNotes!.isNotEmpty) ...[
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Catatan Pengiriman',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.green.shade700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(order.shippingNotes!, style: const TextStyle(fontSize: 14)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+
+      if (order.shipmentProofUrl != null) ...[
+        const Text(
+          'Foto Pengiriman',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _showImageFullscreen(order.shipmentProofUrl!, context),
+          child: Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                order.shipmentProofUrl!,
+                fit: BoxFit.cover,
+                errorBuilder:
+                    (context, error, stackTrace) =>
+                        const Center(child: Text('Gagal memuat gambar')),
+              ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: FontWeight.w600,
-              color:
-                  isTotal ? const Color(0xFF2E7D32) : const Color(0xFF2D3748),
+        ),
+      ],
+    ],
+  );
+}
+
+Widget _buildExpedisiInfo(Order order, BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Kurir',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue.shade700,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              '${order.shipping.courierName} - ${order.shipping.serviceName}',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+
+            if (order.trackingNumber != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Nomor Resi',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      order.trackingNumber!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed:
+                        () => _copyToClipboard(order.trackingNumber!, context),
+                    icon: const Icon(Icons.copy, size: 20),
+                    tooltip: 'Salin resi',
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
-    );
-  }
 
-  String _formatCurrency(double amount) {
-    return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
-  }
+      if (order.trackingNumber != null && order.trackingUrl != null) ...[
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _openTrackingUrl(order.trackingUrl!, context),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: const Text('Track di Website Kurir'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+
+      if (order.shipmentProofUrl != null) ...[
+        const SizedBox(height: 16),
+        const Text(
+          'Bukti Serah Terima',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => _showImageFullscreen(order.shipmentProofUrl!, context),
+          child: Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade300),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                order.shipmentProofUrl!,
+                fit: BoxFit.cover,
+                errorBuilder:
+                    (context, error, stackTrace) =>
+                        const Center(child: Text('Gagal memuat gambar')),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+void _showImageFullscreen(String imageUrl, BuildContext context) {
+  showDialog(
+    context: context,
+    builder:
+        (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Center(
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder:
+                      (context, error, stackTrace) => const Center(
+                        child: Text(
+                          'Gagal memuat gambar',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                ),
+              ),
+              Positioned(
+                top: 40,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+  );
+}
+
+void _copyToClipboard(String text, BuildContext context) {
+  ShippingUtils.copyToClipboard(context, text);
+}
+
+void _openTrackingUrl(String url, BuildContext context) {
+  ShippingUtils.launchCourierUrl(context, url);
+}
+
+Widget _buildDetailSection(String title, Widget content) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 24),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF2D3748),
+          ),
+        ),
+        const SizedBox(height: 12),
+        content,
+      ],
+    ),
+  );
+}
+
+Widget _buildDetailRow(String label, String value, {bool isTotal = false}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isTotal ? 16 : 14,
+            fontWeight: isTotal ? FontWeight.w600 : FontWeight.normal,
+            color: isTotal ? const Color(0xFF2D3748) : Colors.grey[600],
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isTotal ? 16 : 14,
+            fontWeight: FontWeight.w600,
+            color: isTotal ? const Color(0xFF2E7D32) : const Color(0xFF2D3748),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+String _formatCurrency(double amount) {
+  return 'Rp ${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
 }

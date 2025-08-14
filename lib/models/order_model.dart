@@ -29,6 +29,9 @@ class Order {
   final PaymentStatus paymentStatus;
   final String? paymentProofUrl;
   final String? adminNotes;
+  final String? trackingNumber;
+  final String? shipmentProofUrl;
+  final String? shippingNotes;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -44,6 +47,9 @@ class Order {
     required this.paymentStatus,
     this.paymentProofUrl,
     this.adminNotes,
+    this.trackingNumber,
+    this.shipmentProofUrl,
+    this.shippingNotes,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -71,6 +77,9 @@ class Order {
       ),
       paymentProofUrl: data['paymentProofUrl'],
       adminNotes: data['adminNotes'],
+      trackingNumber: data['trackingNumber'],
+      shipmentProofUrl: data['shipmentProofUrl'],
+      shippingNotes: data['shippingNotes'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -88,6 +97,9 @@ class Order {
       'paymentStatus': paymentStatus.name,
       'paymentProofUrl': paymentProofUrl,
       'adminNotes': adminNotes,
+      'trackingNumber': trackingNumber,
+      'shipmentProofUrl': shipmentProofUrl,
+      'shippingNotes': shippingNotes,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -131,6 +143,56 @@ class Order {
       'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'
     ];
     return '${createdAt.day} ${months[createdAt.month - 1]} ${createdAt.year}';
+  }
+
+  // Shipping type detection
+  bool get isStoreDelivery => shipping.courierName.toLowerCase().contains('toko barokah');
+  bool get isExpedisiDelivery => !isStoreDelivery;
+
+  // Tracking URL generation
+  String? get trackingUrl {
+    if (trackingNumber == null || isStoreDelivery) return null;
+    
+    // Import ShippingUtils and use it for more accurate URL generation
+    return _generateTrackingUrl(shipping.courierName, trackingNumber!);
+  }
+
+  String? _generateTrackingUrl(String courierName, String trackingNumber) {
+    final courier = courierName.toLowerCase();
+    if (courier.contains('jne')) {
+      return 'https://www.jne.co.id/id/tracking/trace';
+    } else if (courier.contains('tiki')) {
+      return 'https://www.tiki.id/tracking';
+    } else if (courier.contains('pos')) {
+      return 'https://www.posindonesia.co.id/id/tracking';
+    } else if (courier.contains('j&t') || courier.contains('jnt')) {
+      return 'https://www.jet.co.id/track';
+    }
+    return null;
+  }
+
+  // Shipping status text
+  String get shippingStatusText {
+    if (isStoreDelivery) {
+      if (shipmentProofUrl != null) {
+        return 'Sedang Dikirim Toko';
+      }
+      return 'Sedang Disiapkan';
+    } else {
+      if (trackingNumber != null) {
+        return 'Diserahkan ke Kurir';
+      }
+      return 'Sedang Disiapkan';
+    }
+  }
+
+  // Check if shipping info is complete
+  bool get hasShippingInfo {
+    if (isStoreDelivery) {
+      return shipmentProofUrl != null;
+    } else {
+      return trackingNumber != null;
+    }
   }
 }
 

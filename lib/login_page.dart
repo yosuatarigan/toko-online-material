@@ -92,7 +92,7 @@ class _LoginPageState extends State<LoginPage> {
                 // Header
                 Column(
                   children: [
-                    Image.asset('assets/logo.png', height: 210),
+                    Image.asset('assets/logo.jpg', height: 210),
                     const SizedBox(height: 32),
                     const Text(
                       'Selamat Datang Kembali!',

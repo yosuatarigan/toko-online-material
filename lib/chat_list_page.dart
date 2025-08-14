@@ -39,7 +39,7 @@ class _ChatListPageState extends State<ChatListPage> {
       ),
       title: Row(
         children: [
-          Image.asset('assets/logo.png', height: 40, width: 40),
+          Image.asset('assets/logo.jpg', height: 40, width: 40),
           const SizedBox(width: 12),
           const Column(
             crossAxisAlignment: CrossAxisAlignment.start,

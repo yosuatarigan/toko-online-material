@@ -36,7 +36,7 @@ class StoreInfoWidget extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Image.asset('assets/logo.png', height: 40, width: 40),
+          Image.asset('assets/logo.jpg', height: 40, width: 40),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -86,7 +86,7 @@ class StoreInfoWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Image.asset('assets/logo.png', height: 40, width: 40),
+              Image.asset('assets/logo.jpg', height: 40, width: 40),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -141,7 +141,7 @@ class StoreInfoWidget extends StatelessWidget {
           // Header
           Row(
             children: [
-              Image.asset('assets/logo.png', height: 40, width: 40),
+              Image.asset('assets/logo.jpg', height: 40, width: 40),
               const SizedBox(width: 20),
               Expanded(
                 child: Column(
