@@ -10,7 +10,7 @@ class DistanceService {
   static const String _storeAddress = "Laren, Lamongan, Jawa Timur";
   
   // Google Maps API Key (ganti dengan API key Anda)
-  static const String _googleApiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
+  static const String _googleApiKey = 'AIzaSyCRNOb3ZhhFSWFB6_bN_Ogz6EI3DP8Bfqw';
 
   /// Menghitung jarak menggunakan Haversine formula (jarak lurus)
   static double calculateHaversineDistance({
