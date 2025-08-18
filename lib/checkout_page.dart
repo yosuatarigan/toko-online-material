@@ -4,7 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/services.dart';
+import 'package:gal/gal.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 import 'package:toko_online_material/models/cartitem.dart';
 import 'package:toko_online_material/models/address_model.dart';
 import 'package:toko_online_material/models/order_model.dart' as order_model;
@@ -860,35 +865,103 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Image.asset(
-                    'assets/qris.jpg',
-                    height: 200,
-                    width: 200,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 200,
-                      width: 200,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.qr_code, size: 40, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text('QR Code', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
+                
+                // QR Code Image with Zoom functionality
+                GestureDetector(
+                  onTap: () => _showQRZoom(),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/qris.jpg',
+                          height: 200,
+                          width: 200,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            height: 200,
+                            width: 200,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.qr_code, size: 40, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text('QR Code', style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Zoom indicator overlay
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.zoom_in,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                
+                const SizedBox(height: 12),
+                
+                // Download and Zoom buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _downloadQRImage,
+                        icon: const Icon(Icons.download, size: 18),
+                        label: const Text('Download'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.purple.shade600,
+                          side: BorderSide(color: Colors.purple.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _showQRZoom,
+                        icon: const Icon(Icons.zoom_in, size: 18),
+                        label: const Text('Perbesar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.purple.shade600,
+                          side: BorderSide(color: Colors.purple.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -907,6 +980,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.touch_app, color: Colors.blue.shade600, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Tap gambar QR untuk memperbesar atau download',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade600,
                           ),
                         ),
                       ),
@@ -1666,6 +1763,251 @@ class _CheckoutPageState extends State<CheckoutPage> {
         margin: const EdgeInsets.all(16),
       ),
     );
+  }
+
+  // QR Code Zoom and Download functions
+  void _showQRZoom() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Stack(
+          children: [
+            // Zoomable QR Code
+            Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width - 40,
+                  maxHeight: MediaQuery.of(context).size.height - 100,
+                ),
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  boundaryMargin: const EdgeInsets.all(20),
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.qr_code, color: Colors.purple, size: 24),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'QR Code Pembayaran',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2D3748),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.grey.shade100,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Image.asset(
+                          'assets/qris.jpg',
+                          width: 300,
+                          height: 300,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            width: 300,
+                            height: 300,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.qr_code, size: 60, color: Colors.grey),
+                                SizedBox(height: 12),
+                                Text(
+                                  'QR Code',
+                                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Total Pembayaran',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatCurrency(_total),
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _downloadQRImage();
+                                },
+                                icon: const Icon(Icons.download, size: 18),
+                                label: const Text('Download'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.purple.shade600,
+                                  side: BorderSide(color: Colors.purple.shade300),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Pinch untuk zoom, drag untuk geser',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadQRImage() async {
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Mengunduh QR Code...'),
+            ],
+          ),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Check if Gal is supported
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        final hasPermission = await Gal.requestAccess();
+        if (!hasPermission) {
+          _showErrorSnackBar('Izin akses galeri diperlukan untuk menyimpan gambar');
+          return;
+        }
+      }
+
+      // Load image from assets
+      final ByteData bytes = await rootBundle.load('assets/qris.jpg');
+      final Uint8List imageBytes = bytes.buffer.asUint8List();
+
+      // Get temporary directory to save file temporarily
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'qris_toko_barokah_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final file = File('${tempDir.path}/$fileName');
+      
+      // Write image to temporary file
+      await file.writeAsBytes(imageBytes);
+
+      // Save to gallery using Gal
+      await Gal.putImage(file.path, album: 'Toko Barokah');
+
+      // Clean up temporary file
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('QR Code berhasil disimpan ke galeri!'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error downloading QR: $e');
+      _showErrorSnackBar('Gagal mengunduh QR Code: ${e.toString()}');
+    }
   }
 
   String _formatCurrency(double amount) {
